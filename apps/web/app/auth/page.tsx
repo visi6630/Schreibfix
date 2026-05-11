@@ -19,6 +19,60 @@ function toGerman(message: string): string {
   );
 }
 
+// ─── Password validation ──────────────────────────────────────────────────────
+
+const SPECIAL_CHARS = /[!@#$%^&*]/;
+
+function validatePassword(pw: string): string[] {
+  const errors: string[] = [];
+  if (pw.length < 8)
+    errors.push("Das Passwort muss mindestens 8 Zeichen haben.");
+  if (!/[A-Z]/.test(pw))
+    errors.push("Das Passwort muss mindestens einen Großbuchstaben enthalten.");
+  if (!/[0-9]/.test(pw))
+    errors.push("Das Passwort muss mindestens eine Zahl enthalten.");
+  if (!SPECIAL_CHARS.test(pw))
+    errors.push(
+      "Das Passwort muss mindestens ein Sonderzeichen enthalten (!@#$%^&*).",
+    );
+  return errors;
+}
+
+type Strength = "weak" | "medium" | "strong";
+
+function getPasswordStrength(pw: string): Strength | null {
+  if (!pw) return null;
+  const checks = [
+    pw.length >= 8,
+    /[A-Z]/.test(pw),
+    /[0-9]/.test(pw),
+    SPECIAL_CHARS.test(pw),
+  ].filter(Boolean).length;
+  if (checks <= 1) return "weak";
+  if (checks <= 3) return "medium";
+  return "strong";
+}
+
+const STRENGTH_LABEL: Record<Strength, string> = {
+  weak: "Schwach",
+  medium: "Mittel",
+  strong: "Stark",
+};
+
+const STRENGTH_COLOR: Record<Strength, string> = {
+  weak: "bg-red-400",
+  medium: "bg-yellow-400",
+  strong: "bg-green-500",
+};
+
+const STRENGTH_WIDTH: Record<Strength, string> = {
+  weak: "w-1/3",
+  medium: "w-2/3",
+  strong: "w-full",
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
 export default function AuthPage() {
   const [mode, setMode] = useState<"login" | "register">("login");
   const [email, setEmail] = useState("");
@@ -28,16 +82,30 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false);
   const router = useRouter();
 
+  const strength = mode === "register" ? getPasswordStrength(password) : null;
+  const passwordErrors =
+    mode === "register" && password ? validatePassword(password) : [];
+
   function switchMode(next: "login" | "register") {
     setMode(next);
     setError("");
     setInfo("");
+    setPassword("");
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
     setInfo("");
+
+    if (mode === "register") {
+      const errors = validatePassword(password);
+      if (errors.length > 0) {
+        setError(errors[0] ?? "Ungültiges Passwort.");
+        return;
+      }
+    }
+
     setLoading(true);
 
     if (mode === "login") {
@@ -56,7 +124,7 @@ export default function AuthPage() {
         setError(toGerman(error.message));
       } else {
         setInfo(
-          "Wir haben dir eine Bestätigungs-E-Mail geschickt. Bitte schau in deinem Postfach nach!"
+          "Wir haben dir eine Bestätigungs-E-Mail geschickt. Bitte schau in deinem Postfach nach!",
         );
       }
     }
@@ -150,6 +218,53 @@ export default function AuthPage() {
               className="w-full rounded-2xl border-2 border-gray-200 px-4 py-3 text-lg font-bold
                          focus:border-fox focus:outline-none"
             />
+
+            {/* Password strength indicator (register only) */}
+            {mode === "register" && password && strength && (
+              <div className="mt-2">
+                <div className="flex items-center justify-between mb-1">
+                  <span className="text-xs text-gray-400">Passwortstärke</span>
+                  <span
+                    className={`text-xs font-bold ${
+                      strength === "strong"
+                        ? "text-green-600"
+                        : strength === "medium"
+                        ? "text-yellow-600"
+                        : "text-red-500"
+                    }`}
+                  >
+                    {STRENGTH_LABEL[strength]}
+                  </span>
+                </div>
+                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-300 ${STRENGTH_COLOR[strength]} ${STRENGTH_WIDTH[strength]}`}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Password requirements list (register only) */}
+            {mode === "register" && password && passwordErrors.length > 0 && (
+              <ul className="mt-2 space-y-0.5">
+                {[
+                  { check: password.length >= 8, label: "Mindestens 8 Zeichen" },
+                  { check: /[A-Z]/.test(password), label: "Einen Großbuchstaben" },
+                  { check: /[0-9]/.test(password), label: "Eine Zahl" },
+                  { check: SPECIAL_CHARS.test(password), label: "Ein Sonderzeichen (!@#$%^&*)" },
+                ].map(({ check, label }) => (
+                  <li
+                    key={label}
+                    className={`text-xs flex items-center gap-1.5 ${
+                      check ? "text-green-600" : "text-gray-400"
+                    }`}
+                  >
+                    <span>{check ? "✓" : "○"}</span>
+                    {label}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
 
           {error && (
@@ -165,8 +280,8 @@ export default function AuthPage() {
           {info && (
             <div
               role="status"
-              className="rounded-2xl border-2 border-forest bg-forest-light px-4 py-3
-                         text-base font-bold text-forest-dark"
+              className="rounded-2xl border-2 border-green-200 bg-green-50 px-4 py-3
+                         text-base font-bold text-green-700"
             >
               ✅ {info}
             </div>

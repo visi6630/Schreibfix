@@ -1,4 +1,5 @@
 import Anthropic from "@anthropic-ai/sdk";
+import { logApiCall, logError, computeClaudeCost } from "./logging";
 
 const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
@@ -58,7 +59,8 @@ const DIKTAT_FALLBACK: DiktatSentenceAI[] = [
 export async function generateDiktatSentences(
   grade: number,
   weakWords: string[],
-  topic?: string
+  topic?: string,
+  userId?: string,
 ): Promise<DiktatSentenceAI[]> {
   const weakPart =
     weakWords.length > 0
@@ -90,10 +92,18 @@ Antworte NUR mit JSON-Array, kein weiterer Text:
       max_tokens: 1024,
       messages: [{ role: "user", content: prompt }],
     });
+    void logApiCall({
+      userId,
+      apiType: "claude",
+      endpoint: "diktat",
+      tokensUsed: msg.usage.input_tokens + msg.usage.output_tokens,
+      costEstimate: computeClaudeCost(msg.usage.input_tokens, msg.usage.output_tokens),
+    });
     const raw = msg.content[0]?.type === "text" ? msg.content[0].text : "";
     return safeParseJson<DiktatSentenceAI[]>(raw, DIKTAT_FALLBACK);
   } catch (err) {
     console.error("generateDiktatSentences error:", err);
+    void logError({ userId, errorType: "claude_diktat_error", errorMessage: String(err).slice(0, 500), page: "diktat" });
     return DIKTAT_FALLBACK;
   }
 }
@@ -110,7 +120,8 @@ const VERB_FALLBACK: VerbConjugationAI[] = [
 
 export async function generateVerbConjugation(
   grade: number,
-  count: number
+  count: number,
+  userId?: string,
 ): Promise<VerbConjugationAI[]> {
   const tenses =
     grade <= 2
@@ -139,10 +150,18 @@ Antworte NUR mit JSON-Array:
       max_tokens: 1500,
       messages: [{ role: "user", content: prompt }],
     });
+    void logApiCall({
+      userId,
+      apiType: "claude",
+      endpoint: "verben",
+      tokensUsed: msg.usage.input_tokens + msg.usage.output_tokens,
+      costEstimate: computeClaudeCost(msg.usage.input_tokens, msg.usage.output_tokens),
+    });
     const raw = msg.content[0]?.type === "text" ? msg.content[0].text : "";
     return safeParseJson<VerbConjugationAI[]>(raw, VERB_FALLBACK.slice(0, count));
   } catch (err) {
     console.error("generateVerbConjugation error:", err);
+    void logError({ userId, errorType: "claude_verben_error", errorMessage: String(err).slice(0, 500), page: "uebungen" });
     return VERB_FALLBACK.slice(0, count);
   }
 }
@@ -159,7 +178,8 @@ const ARTIKEL_FALLBACK: ArtikelExerciseAI[] = [
 
 export async function generateArtikelExercises(
   grade: number,
-  count: number
+  count: number,
+  userId?: string,
 ): Promise<ArtikelExerciseAI[]> {
   const prompt = `Erstelle ${count} der/die/das Übungen für Grundschule Klasse ${grade}.
 - Klasse 1-2: sehr häufige, bekannte Nomen
@@ -183,10 +203,18 @@ Antworte NUR mit JSON-Array:
       max_tokens: 1200,
       messages: [{ role: "user", content: prompt }],
     });
+    void logApiCall({
+      userId,
+      apiType: "claude",
+      endpoint: "artikel",
+      tokensUsed: msg.usage.input_tokens + msg.usage.output_tokens,
+      costEstimate: computeClaudeCost(msg.usage.input_tokens, msg.usage.output_tokens),
+    });
     const raw = msg.content[0]?.type === "text" ? msg.content[0].text : "";
     return safeParseJson<ArtikelExerciseAI[]>(raw, ARTIKEL_FALLBACK.slice(0, count));
   } catch (err) {
     console.error("generateArtikelExercises error:", err);
+    void logError({ userId, errorType: "claude_artikel_error", errorMessage: String(err).slice(0, 500), page: "uebungen" });
     return ARTIKEL_FALLBACK.slice(0, count);
   }
 }
@@ -205,7 +233,8 @@ const READING_FALLBACK: ReadingTextAI = {
 
 export async function generateReadingText(
   grade: number,
-  topic?: string
+  topic?: string,
+  userId?: string,
 ): Promise<ReadingTextAI> {
   const sentenceGuide =
     grade === 1
@@ -216,7 +245,9 @@ export async function generateReadingText(
       ? "6-8 Sätze, ein Absatz, etwas komplexer"
       : "8-12 Sätze, zwei Absätze, für Klasse 4 geeignet";
 
-  const topicPart = topic ? `Thema: ${topic}` : "Freies kindgerechtes Thema (Tiere, Natur, Abenteuer, Alltag)";
+  const topicPart = topic
+    ? `Thema: ${topic}`
+    : "Freies kindgerechtes Thema (Tiere, Natur, Abenteuer, Alltag)";
 
   const prompt = `Erstelle einen deutschen Lesetext für Grundschule Klasse ${grade}.
 ${topicPart}
@@ -240,10 +271,18 @@ Antworte NUR mit JSON:
       max_tokens: 1024,
       messages: [{ role: "user", content: prompt }],
     });
+    void logApiCall({
+      userId,
+      apiType: "claude",
+      endpoint: "lesen",
+      tokensUsed: msg.usage.input_tokens + msg.usage.output_tokens,
+      costEstimate: computeClaudeCost(msg.usage.input_tokens, msg.usage.output_tokens),
+    });
     const raw = msg.content[0]?.type === "text" ? msg.content[0].text : "";
     return safeParseJson<ReadingTextAI>(raw, READING_FALLBACK);
   } catch (err) {
     console.error("generateReadingText error:", err);
+    void logError({ userId, errorType: "claude_lesen_error", errorMessage: String(err).slice(0, 500), page: "lesen" });
     return READING_FALLBACK;
   }
 }

@@ -64,7 +64,7 @@ const cards = [
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function HomeClient() {
-  const { user, loading: authLoading } = useAuth();
+  const { user, loading: authLoading, isAdmin } = useAuth();
   const [klasse, setKlasse] = useState<number | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
 
@@ -148,10 +148,15 @@ export function HomeClient() {
           </p>
         )}
 
-        <div className="mt-10 text-center">
+        <div className="mt-10 text-center flex justify-center gap-5">
           <Link href="/eltern" className="text-xs text-gray-300 hover:text-gray-400 underline">
             Elternportal
           </Link>
+          {isAdmin && (
+            <Link href="/admin" className="text-xs text-gray-300 hover:text-gray-400 underline">
+              Admin
+            </Link>
+          )}
         </div>
       </div>
     </>
