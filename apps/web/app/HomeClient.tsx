@@ -46,6 +46,13 @@ const cards = [
     color: "bg-forest-light border-forest",
   },
   {
+    href: "/lesen",
+    icon: "📖",
+    title: "Lesen",
+    desc: "Texte lesen & verstehen",
+    color: "bg-blue-50 border-blue-300",
+  },
+  {
     href: "/fortschritt",
     icon: "⭐",
     title: "Fortschritt",
@@ -140,6 +147,12 @@ export function HomeClient() {
             </button>
           </p>
         )}
+
+        <div className="mt-10 text-center">
+          <Link href="/eltern" className="text-xs text-gray-300 hover:text-gray-400 underline">
+            Elternportal
+          </Link>
+        </div>
       </div>
     </>
   );

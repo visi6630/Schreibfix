@@ -1,11 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import type { DiktatLesson, Klasse } from "@schreibfix/core";
+import type { DiktatLesson, DiktatSentence, Klasse } from "@schreibfix/core";
 import { diktatLessons } from "@schreibfix/core";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import { DiktatClient } from "./DiktatClient";
+import type { DiktatSentenceAI } from "@/lib/ai-content";
 
 type CompletedMap = Record<string, number>; // lessonId → best stars
 
@@ -16,11 +17,59 @@ function starsEmoji(stars: number) {
 
 const KLASSEN: Klasse[] = [1, 2, 3, 4];
 
+// Build a flat lookup: sentenceId → DiktatSentence
+const sentenceById = new Map<string, DiktatSentence>();
+for (const lesson of diktatLessons) {
+  for (const s of lesson.sentences) {
+    sentenceById.set(s.id, s);
+  }
+}
+
+type WeakWordRow = {
+  word: string;
+  sentence_id: string;
+  wrong_count: number;
+};
+
+function buildSchwaechenLesson(weakWords: WeakWordRow[]): DiktatLesson | null {
+  // Sort by wrong_count desc, pick top 5 unique sentence_ids
+  const sorted = [...weakWords].sort((a, b) => b.wrong_count - a.wrong_count);
+  const seenSentences = new Set<string>();
+  const sentences: DiktatSentence[] = [];
+
+  for (const row of sorted) {
+    if (seenSentences.has(row.sentence_id)) continue;
+    const s = sentenceById.get(row.sentence_id);
+    if (!s) continue;
+    seenSentences.add(row.sentence_id);
+    sentences.push({
+      ...s,
+      hint: `Achte besonders auf das Wort "${row.word}".`,
+    });
+    if (sentences.length >= 5) break;
+  }
+
+  if (sentences.length === 0) return null;
+
+  return {
+    id: "meine-schwaerchen",
+    title: "Meine Schwächen",
+    klasse: 1,
+    theme: "Deine Fehlerwörter",
+    xpReward: 30,
+    sentences,
+  };
+}
+
 export function LessonPickerClient() {
   const { user } = useAuth();
   const [selectedLesson, setSelectedLesson] = useState<DiktatLesson | null>(null);
   const [completedMap, setCompletedMap] = useState<CompletedMap>({});
   const [filterKlasse, setFilterKlasse] = useState<Klasse | null>(null);
+  const [schwaechenLesson, setSchwaechenLesson] = useState<DiktatLesson | null>(null);
+  const [userKlasse, setUserKlasse] = useState<Klasse>(2);
+  const [weakWordsForAI, setWeakWordsForAI] = useState<string[]>([]);
+  const [aiLoading, setAiLoading] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -32,7 +81,10 @@ export function LessonPickerClient() {
       .eq("id", user.id)
       .maybeSingle()
       .then(({ data }) => {
-        if (data?.klasse) setFilterKlasse(data.klasse as Klasse);
+        if (data?.klasse) {
+          setFilterKlasse(data.klasse as Klasse);
+          setUserKlasse(data.klasse as Klasse);
+        }
       });
 
     // Fetch best stars per lesson
@@ -49,7 +101,51 @@ export function LessonPickerClient() {
         }
         setCompletedMap(map);
       });
+
+    // Fetch weak words for "Meine Schwächen" lesson and KI-Diktat
+    void supabase
+      .from("weak_words")
+      .select("word, sentence_id, wrong_count")
+      .eq("user_id", user.id)
+      .order("wrong_count", { ascending: false })
+      .limit(20)
+      .then(({ data }) => {
+        if (!data || data.length === 0) return;
+        const lesson = buildSchwaechenLesson(data as WeakWordRow[]);
+        setSchwaechenLesson(lesson);
+        setWeakWordsForAI((data as WeakWordRow[]).slice(0, 8).map((r) => r.word));
+      });
   }, [user]);
+
+  const handleAiDiktat = async () => {
+    setAiLoading(true);
+    try {
+      const res = await fetch("/api/ai/diktat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ grade: userKlasse, weakWords: weakWordsForAI }),
+      });
+      const aiSentences: DiktatSentenceAI[] = await res.json() as DiktatSentenceAI[];
+      const lessonId = `ai-generated-${Date.now()}`;
+      const lesson: DiktatLesson = {
+        id: lessonId,
+        title: "🤖 KI-Diktat",
+        klasse: userKlasse,
+        theme: "Vom Computer erstellt",
+        xpReward: 40,
+        sentences: aiSentences.map((s, i) => ({
+          id: `${lessonId}-s${i}`,
+          text: s.sentence,
+          hint: s.tip,
+        })),
+      };
+      setSelectedLesson(lesson);
+    } catch (err) {
+      console.error("KI-Diktat error:", err);
+    } finally {
+      setAiLoading(false);
+    }
+  };
 
   if (selectedLesson) {
     return (
@@ -80,6 +176,56 @@ export function LessonPickerClient() {
         <h2 className="text-2xl font-black text-fox">Diktat</h2>
         <p className="text-gray-500 text-base">Wähle eine Lektion aus!</p>
       </div>
+
+      {/* KI-Diktat special lesson */}
+      <div className="mb-4">
+        <button
+          onClick={() => { void handleAiDiktat(); }}
+          disabled={aiLoading}
+          className="card flex items-center gap-4 text-left w-full border-2 border-violet-300
+                     bg-violet-50 transition-transform active:scale-95 hover:-translate-y-0.5
+                     disabled:opacity-60 disabled:cursor-wait"
+        >
+          <div className="text-3xl">{aiLoading ? "⏳" : "🤖"}</div>
+          <div className="flex-1 min-w-0">
+            <p className="font-black text-lg">KI-Diktat</p>
+            <p className="text-sm text-gray-500">
+              {aiLoading
+                ? "Schreibfix denkt nach…"
+                : "Frisch vom Computer · Passend für deine Klasse"}
+            </p>
+          </div>
+          {aiLoading ? (
+            <div className="shrink-0 animate-spin text-2xl">🦊</div>
+          ) : (
+            <div className="shrink-0">
+              <span className="text-sm font-bold text-violet-600">Neu!</span>
+            </div>
+          )}
+        </button>
+      </div>
+
+      {/* "Meine Schwächen" special lesson */}
+      {schwaechenLesson && (
+        <div className="mb-6">
+          <button
+            onClick={() => setSelectedLesson(schwaechenLesson)}
+            className="card flex items-center gap-4 text-left w-full border-2 border-red-300
+                       bg-red-50 transition-transform active:scale-95 hover:-translate-y-0.5"
+          >
+            <div className="text-3xl">⚠️</div>
+            <div className="flex-1 min-w-0">
+              <p className="font-black text-lg">Meine Schwächen</p>
+              <p className="text-sm text-gray-500">
+                {schwaechenLesson.sentences.length} Fehlerwörter · Übe deine Schwachstellen!
+              </p>
+            </div>
+            <div className="shrink-0">
+              <span className="text-sm font-bold text-red-500">Üben!</span>
+            </div>
+          </button>
+        </div>
+      )}
 
       {/* Grade filter */}
       <div className="flex gap-2 mb-6 flex-wrap">
