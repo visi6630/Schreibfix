@@ -3,6 +3,7 @@ node_modules
 dist
 .turbo
 *.env*.local
+.env
 .expo
 android
 ios

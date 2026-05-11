@@ -14,7 +14,9 @@
       "Bash(curl -s -o /dev/null -w \"/ → %{http_code}\\\\n\" http://localhost:3001)",
       "Bash(curl -s -o /dev/null -w \"/diktat → %{http_code}\\\\n\" http://localhost:3001/diktat)",
       "Bash(curl -s -o /dev/null -w \"/uebungen → %{http_code}\\\\n\" http://localhost:3001/uebungen)",
-      "Bash(curl -s -o /dev/null -w \"/fortschritt → %{http_code}\\\\n\" http://localhost:3001/fortschritt)"
+      "Bash(curl -s -o /dev/null -w \"/fortschritt → %{http_code}\\\\n\" http://localhost:3001/fortschritt)",
+      "Bash(git *)",
+      "PowerShell(git *)"
     ]
   }
 }
