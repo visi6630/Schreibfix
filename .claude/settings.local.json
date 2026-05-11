@@ -16,7 +16,11 @@
       "Bash(curl -s -o /dev/null -w \"/uebungen → %{http_code}\\\\n\" http://localhost:3001/uebungen)",
       "Bash(curl -s -o /dev/null -w \"/fortschritt → %{http_code}\\\\n\" http://localhost:3001/fortschritt)",
       "Bash(git *)",
-      "PowerShell(git *)"
+      "PowerShell(git *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Dev\\\\Schreibfix\" -Recurse -Depth 2)",
+      "Bash(Select-Object FullName, PSIsContainer)",
+      "Bash(Format-Table -AutoSize)",
+      "Bash(npx tsc *)"
     ]
   }
 }

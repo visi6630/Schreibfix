@@ -12,6 +12,8 @@ const navItems = [
 export function BottomNav() {
   const pathname = usePathname();
 
+  if (pathname === "/auth") return null;
+
   return (
     <nav
       className="fixed bottom-0 left-0 right-0 z-30 flex border-t-2 border-fox-light bg-white shadow-lg"

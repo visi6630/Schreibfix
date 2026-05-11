@@ -1,3 +1,5 @@
+import { ProtectedPage } from "@/components/ProtectedPage";
+
 // Placeholder — will be driven by Supabase UserProgress in a later milestone
 
 const badges = [
@@ -9,6 +11,7 @@ const badges = [
 
 export default function FortschrittPage() {
   return (
+    <ProtectedPage>
     <div className="mx-auto max-w-lg px-4 py-8">
       <h2 className="text-2xl font-black text-fox mb-6">Mein Fortschritt</h2>
 
@@ -60,5 +63,6 @@ export default function FortschrittPage() {
         </div>
       </div>
     </div>
+    </ProtectedPage>
   );
 }

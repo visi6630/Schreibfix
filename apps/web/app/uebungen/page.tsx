@@ -1,3 +1,5 @@
+import { ProtectedPage } from "@/components/ProtectedPage";
+
 const sections = [
   {
     title: "Rechtschreibung",
@@ -13,6 +15,7 @@ const sections = [
 
 export default function UebungenPage() {
   return (
+    <ProtectedPage>
     <div className="mx-auto max-w-lg px-4 py-8">
       <h2 className="text-2xl font-black text-fox mb-6">Übungen</h2>
 
@@ -45,5 +48,6 @@ export default function UebungenPage() {
         🦊 Schreibfix arbeitet noch an diesen Übungen!
       </p>
     </div>
+    </ProtectedPage>
   );
 }
