@@ -1,8 +1,10 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import type { DiktatLesson, DiktatSentence } from "@schreibfix/core";
 import { checkDiktatAnswer, starsLabel } from "@schreibfix/core";
+import { supabase } from "@/lib/supabase";
+import { useAuth } from "@/components/AuthProvider";
 
 // ─── TTS helper ──────────────────────────────────────────────────────────────
 
@@ -62,13 +64,30 @@ type SentenceState = {
   result?: ReturnType<typeof checkDiktatAnswer>;
 };
 
-export function DiktatClient({ lesson }: { lesson: DiktatLesson }) {
+export function DiktatClient({ lesson, onBack }: { lesson: DiktatLesson; onBack?: () => void }) {
+  const { user } = useAuth();
   const [phase, setPhase] = useState<Phase>("intro");
   const [index, setIndex] = useState(0);
   const [states, setStates] = useState<SentenceState[]>(
     lesson.sentences.map((s) => ({ sentence: s, typed: "" }))
   );
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Save completed lesson progress to Supabase
+  useEffect(() => {
+    if (phase !== "done" || !user) return;
+    const score = Math.round(
+      states.reduce((sum, s) => sum + (s.result?.score ?? 0), 0) / lesson.sentences.length
+    );
+    const stars: 0 | 1 | 2 | 3 = score === 100 ? 3 : score >= 70 ? 2 : score >= 40 ? 1 : 0;
+    void supabase.from("progress").insert({
+      user_id: user.id,
+      lesson_id: lesson.id,
+      score,
+      stars,
+      completed_at: new Date().toISOString(),
+    });
+  }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const current = states[index];
 
@@ -104,12 +123,13 @@ export function DiktatClient({ lesson }: { lesson: DiktatLesson }) {
   // ── Next sentence or finish ─────────────────────────────────────────────
   const handleNext = () => {
     if (index + 1 < lesson.sentences.length) {
-      setIndex((i) => i + 1);
-      setPhase("listening");
+      const nextIdx = index + 1;
+      setIndex(nextIdx);
+      setPhase("typing");
       setTimeout(() => {
-        speakGerman(lesson.sentences[index + 1]?.text ?? "");
-        setTimeout(() => inputRef.current?.focus(), 100);
-      }, 300);
+        speakGerman(lesson.sentences[nextIdx]?.text ?? "");
+        inputRef.current?.focus();
+      }, 200);
     } else {
       setPhase("done");
     }
@@ -186,16 +206,23 @@ export function DiktatClient({ lesson }: { lesson: DiktatLesson }) {
           ))}
         </div>
 
-        <button
-          className="btn-secondary"
-          onClick={() => {
-            setIndex(0);
-            setPhase("intro");
-            setStates(lesson.sentences.map((s) => ({ sentence: s, typed: "" })));
-          }}
-        >
-          Nochmal üben
-        </button>
+        <div className="flex flex-col gap-3">
+          <button
+            className="btn-secondary"
+            onClick={() => {
+              setIndex(0);
+              setPhase("intro");
+              setStates(lesson.sentences.map((s) => ({ sentence: s, typed: "" })));
+            }}
+          >
+            Nochmal üben
+          </button>
+          {onBack && (
+            <button className="btn-secondary" onClick={onBack}>
+              ← Andere Lektion wählen
+            </button>
+          )}
+        </div>
       </div>
     );
   }
