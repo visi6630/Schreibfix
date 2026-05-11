@@ -135,6 +135,13 @@ npm install   # always run from project root
 cd packages/core && npm run build
 ```
 
+## Vercel Deployment
+
+- `vercel.json` at project root — builds only `apps/web` via `turbo run build --filter=@schreibfix/web`
+- Turbo's dependency graph ensures `packages/core` is built first (before `apps/web`)
+- **Vercel dashboard**: Root Directory must be set to `/` (project root, not `apps/web`)
+- Output directory: `apps/web/.next`
+
 ## Git
 
 Remote: https://github.com/visi6630/Schreibfix.git
