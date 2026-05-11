@@ -188,13 +188,145 @@ const k4Weltall: DiktatLesson = {
   ],
 };
 
+// ─── Klasse 1 — neue Themen ──────────────────────────────────────────────────
+
+const k1ObstGemuese: DiktatLesson = {
+  id: "k1-obst-gemuese",
+  title: "Obst und Gemüse",
+  klasse: 1,
+  theme: "Obst & Gemüse",
+  xpReward: 20,
+  sentences: [
+    { id: "k1-og-1", text: "Der Apfel ist rot und rund.", hint: "'Apfel' fängt mit großem A an." },
+    { id: "k1-og-2", text: "Die Banane ist gelb und lang.", hint: "'Banane' schreibt man mit großem B." },
+    { id: "k1-og-3", text: "Die Karotte wächst in der Erde.", hint: "'Karotte' fängt mit großem K an." },
+    { id: "k1-og-4", text: "Wir essen gern frische Erdbeeren.", hint: "'Erdbeeren' schreibt man mit großem E." },
+    { id: "k1-og-5", text: "Der Salat ist grün und knackig.", hint: "'Salat' fängt mit großem S an." },
+  ],
+};
+
+const k1KoerperKleidung: DiktatLesson = {
+  id: "k1-koerper-kleidung",
+  title: "Körper und Kleidung",
+  klasse: 1,
+  theme: "Körper & Kleidung",
+  xpReward: 20,
+  sentences: [
+    { id: "k1-kk-1", text: "Ich wasche mir die Hände.", hint: "'Hände' schreibt man mit ä." },
+    { id: "k1-kk-2", text: "Meine Jacke ist blau und warm.", hint: "'Jacke' fängt mit großem J an." },
+    { id: "k1-kk-3", text: "Der Kopf sitzt auf dem Hals.", hint: "'Kopf' und 'Hals' sind Nomen." },
+    { id: "k1-kk-4", text: "Ich ziehe meine Schuhe an.", hint: "'Schuhe' fängt mit großem S an." },
+    { id: "k1-kk-5", text: "Das Hemd hat viele Knöpfe.", hint: "'Knöpfe' schreibt man mit ö." },
+  ],
+};
+
+// ─── Klasse 2 — neue Themen ──────────────────────────────────────────────────
+
+const k2MaerchenBerufe: DiktatLesson = {
+  id: "k2-maerchen-berufe",
+  title: "Märchen und Berufe",
+  klasse: 2,
+  theme: "Märchen & Berufe",
+  xpReward: 30,
+  sentences: [
+    { id: "k2-mb-1", text: "Rotkäppchen geht durch den dunklen Wald.", hint: "'Rotkäppchen' hat ein ä und ein pp." },
+    { id: "k2-mb-2", text: "Der Arzt hilft kranken Menschen jeden Tag.", hint: "'Arzt' fängt mit großem A an." },
+    { id: "k2-mb-3", text: "Die Feuerwehr löscht das Feuer schnell.", hint: "'Feuerwehr' ist ein zusammengesetztes Wort." },
+    { id: "k2-mb-4", text: "Die Lehrerin erklärt die Aufgaben geduldig.", hint: "'Lehrerin' fängt mit großem L an." },
+    { id: "k2-mb-5", text: "Der Bäcker backt frisches Brot am Morgen.", hint: "'Bäcker' schreibt man mit ä und ck." },
+  ],
+};
+
+const k2FahrzeugeMusik: DiktatLesson = {
+  id: "k2-fahrzeuge-musik",
+  title: "Fahrzeuge und Musik",
+  klasse: 2,
+  theme: "Fahrzeuge & Musik",
+  xpReward: 30,
+  sentences: [
+    { id: "k2-fm-1", text: "Der Zug fährt durch den langen Tunnel.", hint: "'Tunnel' schreibt man mit nn und ll." },
+    { id: "k2-fm-2", text: "Das Flugzeug fliegt hoch über den Wolken.", hint: "'Flugzeug' setzt sich aus Flug und Zeug zusammen." },
+    { id: "k2-fm-3", text: "Ich spiele jeden Tag Klavier.", hint: "'Klavier' fängt mit großem K an." },
+    { id: "k2-fm-4", text: "Die Trompete klingt sehr laut.", hint: "'Trompete' fängt mit großem T an." },
+    { id: "k2-fm-5", text: "Das Fahrrad hat zwei Räder und eine Klingel.", hint: "'Räder' schreibt man mit ä." },
+  ],
+};
+
+// ─── Klasse 3 — neue Themen ──────────────────────────────────────────────────
+
+const k3LaenderFluesse: DiktatLesson = {
+  id: "k3-laender-fluesse",
+  title: "Länder und Flüsse",
+  klasse: 3,
+  theme: "Länder & Flüsse",
+  xpReward: 40,
+  sentences: [
+    { id: "k3-lf-1", text: "Deutschland liegt in der Mitte Europas.", hint: "'Deutschland' und 'Europa' schreibt man groß." },
+    { id: "k3-lf-2", text: "Der Rhein fließt durch viele deutsche Städte.", hint: "'Rhein' ist ein Eigenname mit großem R." },
+    { id: "k3-lf-3", text: "Die Schweiz ist bekannt für ihre hohen Berge.", hint: "'Schweiz' ist ein Eigenname mit großem S." },
+    { id: "k3-lf-4", text: "Die Donau entspringt im Schwarzwald und mündet ins Schwarze Meer.", hint: "'Donau' und 'Schwarzwald' sind Eigennamen." },
+    { id: "k3-lf-5", text: "In Österreich sprechen die Menschen auch Deutsch.", hint: "'Österreich' schreibt man mit ö und ei." },
+  ],
+};
+
+const k3JahreszeitenGedichte: DiktatLesson = {
+  id: "k3-jahreszeiten-gedichte",
+  title: "Jahreszeiten-Gedichte",
+  klasse: 3,
+  theme: "Jahreszeiten & Gedichte",
+  xpReward: 40,
+  sentences: [
+    { id: "k3-jg-1", text: "Im Winter liegt die Welt in tiefem Schnee begraben.", hint: "'begraben' kommt von graben." },
+    { id: "k3-jg-2", text: "Der Frühling bringt bunte Blüten und fröhliches Vogelgezwitscher.", hint: "'Vogelgezwitscher' ist ein langes zusammengesetztes Wort." },
+    { id: "k3-jg-3", text: "Im heißen Sommer glitzert das Wasser in der Sonne.", hint: "'glitzert' kommt von Glitzer." },
+    { id: "k3-jg-4", text: "Der goldene Herbst malt die Wälder in Rot und Orange.", hint: "'goldene' kommt von Gold." },
+    { id: "k3-jg-5", text: "Jede Jahreszeit hat ihren eigenen Zauber und ihre Schönheit.", hint: "'Schönheit' schreibt man mit ö und ei." },
+  ],
+};
+
+// ─── Klasse 4 — neue Themen ──────────────────────────────────────────────────
+
+const k4TechnologieDemokratie: DiktatLesson = {
+  id: "k4-technologie-demokratie",
+  title: "Technologie und Demokratie",
+  klasse: 4,
+  theme: "Technologie & Demokratie",
+  xpReward: 50,
+  sentences: [
+    { id: "k4-td-1", text: "Das Internet verbindet Milliarden von Menschen weltweit miteinander.", hint: "'Milliarden' schreibt man mit ill." },
+    { id: "k4-td-2", text: "In einer Demokratie darf jeder Bürger seine Meinung frei äußern.", hint: "'äußern' schreibt man mit ä und ß." },
+    { id: "k4-td-3", text: "Künstliche Intelligenz verändert unsere Arbeitswelt grundlegend.", hint: "'Künstliche' schreibt man mit ü." },
+    { id: "k4-td-4", text: "Freie Wahlen sind ein wichtiger Bestandteil der Demokratie.", hint: "'Bestandteil' setzt sich aus Bestand und Teil zusammen." },
+    { id: "k4-td-5", text: "Soziale Netzwerke ermöglichen schnelle Kommunikation über Grenzen hinweg.", hint: "'Kommunikation' schreibt man mit mm." },
+  ],
+};
+
+const k4OekologieMittelalter: DiktatLesson = {
+  id: "k4-oekologie-mittelalter",
+  title: "Ökologie und Mittelalter",
+  klasse: 4,
+  theme: "Ökologie & Mittelalter",
+  xpReward: 50,
+  sentences: [
+    { id: "k4-om-1", text: "Der Klimawandel bedroht viele Tier- und Pflanzenarten weltweit.", hint: "'Klimawandel' setzt sich aus Klima und Wandel zusammen." },
+    { id: "k4-om-2", text: "Im Mittelalter lebten die Menschen in Burgen und kleinen Dörfern.", hint: "'Mittelalter' schreibt man mit tt." },
+    { id: "k4-om-3", text: "Erneuerbare Energien wie Solar- und Windkraft schonen die Umwelt.", hint: "'Erneuerbare' schreibt man mit eu." },
+    { id: "k4-om-4", text: "Ritter trugen schwere Rüstungen und kämpften mit dem Schwert.", hint: "'Rüstungen' schreibt man mit ü." },
+    { id: "k4-om-5", text: "Müll trennen und Energie sparen schützt unsere natürlichen Ressourcen.", hint: "'Ressourcen' schreibt man mit ss." },
+  ],
+};
+
 // ─── Exports ─────────────────────────────────────────────────────────────────
 
 export const diktatLessons: DiktatLesson[] = [
   k1Tiere, k1Familie, k1Schule,
+  k1ObstGemuese, k1KoerperKleidung,
   k2Jahreszeiten, k2Essen, k2Wetter,
+  k2MaerchenBerufe, k2FahrzeugeMusik,
   k3Natur, k3Ferien, k3Freundschaft,
+  k3LaenderFluesse, k3JahreszeitenGedichte,
   k4Regenwald, k4Erfindungen, k4Weltall,
+  k4TechnologieDemokratie, k4OekologieMittelalter,
 ];
 
 export const sampleDiktatLesson: DiktatLesson = k2Jahreszeiten;

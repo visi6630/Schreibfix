@@ -100,10 +100,20 @@ function formatDate(iso: string) {
 }
 
 const GRAMMAR_LABELS: Record<string, string> = {
-  "grammatik-verben":  "Verbkonjugation",
-  "grammatik-artikel": "Artikel: der/die/das",
-  "grammatik-plural":  "Einzahl & Mehrzahl",
+  "grammatik-verben":          "Verbkonjugation",
+  "grammatik-artikel":         "Artikel: der/die/das",
+  "grammatik-plural":          "Einzahl & Mehrzahl",
+  "grammatik-adjektive":       "Adjektiv-Steigerung",
+  "grammatik-wortarten":       "Wortarten erkennen",
+  "grammatik-zeitformen":      "Präteritum",
+  "grammatik-satzzeichen":     "Satzzeichen",
+  "grammatik-grossschreibung": "Großschreibung",
+  "grammatik-satzbau":         "Satzbau",
 };
+
+function grammarLabel(lessonId: string): string {
+  return GRAMMAR_LABELS[lessonId] ?? lessonId.replace("grammatik-", "");
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
@@ -119,7 +129,8 @@ export function FortschrittClient() {
       .select("*")
       .eq("user_id", user.id)
       .order("completed_at", { ascending: false })
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) console.error("Fortschritt fetch error:", error);
         setProgress((data as ProgressRow[]) ?? []);
         setLoading(false);
       });
@@ -238,7 +249,7 @@ export function FortschrittClient() {
               </span>
               <div className="flex-1 min-w-0">
                 <p className="font-black truncate">
-                  {GRAMMAR_LABELS[p.lesson_id] ?? p.lesson_id}
+                  {grammarLabel(p.lesson_id)}
                 </p>
                 <p className="text-sm text-gray-400">{formatDate(p.completed_at)}</p>
               </div>

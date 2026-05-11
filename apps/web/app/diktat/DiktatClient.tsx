@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import type { DiktatLesson, DiktatSentence } from "@schreibfix/core";
-import { checkDiktatAnswer, starsLabel } from "@schreibfix/core";
+import { checkDiktatAnswer, starsLabel, buildWeakWordUpdates } from "@schreibfix/core";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 
@@ -73,20 +73,54 @@ export function DiktatClient({ lesson, onBack }: { lesson: DiktatLesson; onBack?
   );
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Save completed lesson progress to Supabase
+  // Save completed lesson progress + weak words to Supabase
   useEffect(() => {
     if (phase !== "done" || !user) return;
+
     const score = Math.round(
       states.reduce((sum, s) => sum + (s.result?.score ?? 0), 0) / lesson.sentences.length
     );
     const stars: 0 | 1 | 2 | 3 = score === 100 ? 3 : score >= 70 ? 2 : score >= 40 ? 1 : 0;
-    void supabase.from("progress").insert({
-      user_id: user.id,
-      lesson_id: lesson.id,
-      score,
-      stars,
-      completed_at: new Date().toISOString(),
+
+    void supabase
+      .from("progress")
+      .insert({
+        user_id: user.id,
+        lesson_id: lesson.id,
+        score,
+        stars,
+        completed_at: new Date().toISOString(),
+      })
+      .then(({ error }) => {
+        if (error) console.error("Progress save error:", error);
+      });
+
+    // Collect wrong words for spaced repetition
+    const wrongEntries = states.flatMap(({ sentence, result }) => {
+      if (!result) return [];
+      return result.words
+        .filter((w) => !w.correct && w.expected)
+        .map((w) => ({ word: w.expected, sentenceId: sentence.id }));
     });
+
+    if (wrongEntries.length === 0) return;
+
+    // Fetch existing weak_words for this user to compute updated counts
+    void supabase
+      .from("weak_words")
+      .select("*")
+      .eq("user_id", user.id)
+      .in("word", wrongEntries.map((e) => e.word))
+      .then(({ data }) => {
+        const updates = buildWeakWordUpdates(user.id, wrongEntries, data ?? []);
+        if (updates.length === 0) return;
+        void supabase
+          .from("weak_words")
+          .upsert(updates, { onConflict: "user_id,word" })
+          .then(({ error }) => {
+            if (error) console.error("Weak words save error:", error);
+          });
+      });
   }, [phase]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const current = states[index];

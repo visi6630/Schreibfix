@@ -43,7 +43,13 @@ export type GrammarCategory =
   | "verb-conjugation"
   | "noun-gender"
   | "plural"
-  | "satzglieder";
+  | "satzglieder"
+  | "adjective-comparison"
+  | "punctuation"
+  | "capitalization"
+  | "word-types"
+  | "sentence-building"
+  | "past-tense";
 
 export type Tempus = "Präsens" | "Präteritum" | "Perfekt";
 
@@ -89,6 +95,18 @@ export interface UserProgress {
   lastActiveDate: string;   // ISO date
   completedExercises: ExerciseResult[];
   unlockedBadges: string[];
+}
+
+// ─── Spaced Repetition ───────────────────────────────────────────────────────
+
+export interface WeakWord {
+  id?: string;
+  user_id: string;
+  word: string;
+  sentence_id: string;
+  wrong_count: number;
+  last_seen: string;   // ISO timestamp
+  next_review: string; // ISO timestamp
 }
 
 // ─── Generic exercise union ───────────────────────────────────────────────────
