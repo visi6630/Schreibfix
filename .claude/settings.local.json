@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "PowerShell(Start-Process -NoNewWindow -FilePath \"npm\" -ArgumentList \"run\",\"dev\",\"--workspace=apps/web\" -WorkingDirectory \"C:\\\\Dev\\\\Schreibfix\" -RedirectStandardOutput \"C:\\\\Dev\\\\Schreibfix\\\\web-dev.log\" -RedirectStandardError \"C:\\\\Dev\\\\Schreibfix\\\\web-dev-err.log\")",
+      "Bash(npm run *)",
+      "Bash(echo \"PID: $!\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000/diktat)",
+      "Bash(curl -s -o /dev/null -w \" %{http_code}\" http://localhost:3000/uebungen)",
+      "Bash(curl -s -o /dev/null -w \" %{http_code}\" http://localhost:3000/fortschritt)",
+      "PowerShell(Get-Item *)",
+      "Bash(npm install *)",
+      "Bash(pkill -f \"next dev\")",
+      "Bash(curl -s -o /dev/null -w \"/ → %{http_code}\\\\n\" http://localhost:3001)",
+      "Bash(curl -s -o /dev/null -w \"/diktat → %{http_code}\\\\n\" http://localhost:3001/diktat)",
+      "Bash(curl -s -o /dev/null -w \"/uebungen → %{http_code}\\\\n\" http://localhost:3001/uebungen)",
+      "Bash(curl -s -o /dev/null -w \"/fortschritt → %{http_code}\\\\n\" http://localhost:3001/fortschritt)"
+    ]
+  }
+}

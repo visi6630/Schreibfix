@@ -1,0 +1,39 @@
+@import url('https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    font-family: "Nunito", sans-serif;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  body {
+    @apply bg-amber-50 text-gray-800;
+  }
+
+  /* Visible focus rings for accessibility */
+  :focus-visible {
+    @apply outline-2 outline-offset-2 outline-fox;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply rounded-2xl bg-fox px-6 py-3 text-lg font-bold text-white shadow-md
+           transition-transform active:scale-95 hover:bg-fox-dark
+           focus-visible:outline focus-visible:outline-2 focus-visible:outline-fox-dark
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply rounded-2xl border-2 border-fox bg-white px-6 py-3 text-lg font-bold
+           text-fox shadow-sm transition-transform active:scale-95 hover:bg-fox-light;
+  }
+
+  .card {
+    @apply rounded-3xl bg-white p-6 shadow-md;
+  }
+}
