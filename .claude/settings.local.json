@@ -20,7 +20,12 @@
       "Bash(Get-ChildItem -Path \"C:\\\\Dev\\\\Schreibfix\" -Recurse -Depth 2)",
       "Bash(Select-Object FullName, PSIsContainer)",
       "Bash(Format-Table -AutoSize)",
-      "Bash(npx tsc *)"
+      "Bash(npx tsc *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Dev\\\\Schreibfix\" -Recurse -Directory)",
+      "Bash(Select-Object -ExpandProperty FullName)",
+      "Bash(Sort-Object)",
+      "Bash(grep -E \"\\(^[^/]*package\\\\.json$|/apps/|/packages/\\)\")",
+      "PowerShell(New-Item *)"
     ]
   }
 }
