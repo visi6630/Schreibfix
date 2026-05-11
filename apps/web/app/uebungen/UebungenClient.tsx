@@ -15,6 +15,7 @@ import {
 } from "@schreibfix/core";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
+import { playCorrect, playWrong, playComplete } from "@/lib/sounds";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -484,7 +485,13 @@ export function UebungenClient() {
 
   const startSession = (cfg: ExerciseTypeConfig) => {
     const pool = getPool(cfg);
-    const session = shuffleArray(pool).slice(0, EXERCISES_PER_SESSION);
+    const session = shuffleArray(pool).slice(0, EXERCISES_PER_SESSION).map((e) => {
+      // Shuffle options for sentence-building so the correct answer isn't always first
+      if (e.category === "sentence-building" && e.options) {
+        return { ...e, options: shuffleArray(e.options) };
+      }
+      return e;
+    });
     if (session.length === 0) return;
     setSelectedType(cfg);
     setSessionExercises(session);
@@ -578,6 +585,7 @@ export function UebungenClient() {
     const isCorrect = option === current.correctAnswer;
     setSelected(option);
     setFeedback(isCorrect ? "correct" : "wrong");
+    isCorrect ? playCorrect() : playWrong();
     const newAnswers = [...answers, isCorrect];
 
     setTimeout(() => {
@@ -603,6 +611,7 @@ export function UebungenClient() {
           .then(({ error }) => {
             if (error) console.error("Progress save error:", error);
           });
+        playComplete();
         setAnswers(newAnswers);
         setPhase("done");
       }

@@ -141,6 +141,9 @@ cd packages/core && npm run build
 - Turbo's dependency graph ensures `packages/core` is built first (before `apps/web`)
 - **Vercel dashboard**: Root Directory must be set to `/` (project root, not `apps/web`)
 - Output directory: `apps/web/.next`
+- **Required Vercel environment variables**:
+  - `ANTHROPIC_API_KEY` — Claude AI features (Diktat, Übungen, Lesen, Elternportal)
+  - `ELEVENLABS_API_KEY` — ElevenLabs TTS (Charlotte voice, ID: `XB0fDUnXU5powFXDhCwa`); falls back to Web Speech API if missing
 
 ## Git
 

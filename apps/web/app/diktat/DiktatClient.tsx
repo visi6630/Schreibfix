@@ -5,21 +5,8 @@ import type { DiktatLesson, DiktatSentence } from "@schreibfix/core";
 import { checkDiktatAnswer, starsLabel, buildWeakWordUpdates } from "@schreibfix/core";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
-
-// ─── TTS helper ──────────────────────────────────────────────────────────────
-
-function speakGerman(text: string, rate = 0.75): void {
-  if (typeof window === "undefined" || !window.speechSynthesis) return;
-  window.speechSynthesis.cancel();
-  const utterance = new SpeechSynthesisUtterance(text);
-  utterance.lang = "de-DE";
-  utterance.rate = rate;
-  // Prefer a German voice if available
-  const voices = window.speechSynthesis.getVoices();
-  const germanVoice = voices.find((v) => v.lang.startsWith("de"));
-  if (germanVoice) utterance.voice = germanVoice;
-  window.speechSynthesis.speak(utterance);
-}
+import { speakText } from "@/lib/tts";
+import { playClick, playComplete } from "@/lib/sounds";
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
@@ -128,7 +115,7 @@ export function DiktatClient({ lesson, onBack }: { lesson: DiktatLesson; onBack?
   // ── Speak current sentence ──────────────────────────────────────────────
   const speak = useCallback(() => {
     if (!current) return;
-    speakGerman(current.sentence.text);
+    void speakText(current.sentence.text, false);
     setPhase("typing");
     setTimeout(() => inputRef.current?.focus(), 100);
   }, [current]);
@@ -161,10 +148,11 @@ export function DiktatClient({ lesson, onBack }: { lesson: DiktatLesson; onBack?
       setIndex(nextIdx);
       setPhase("typing");
       setTimeout(() => {
-        speakGerman(lesson.sentences[nextIdx]?.text ?? "");
+        void speakText(lesson.sentences[nextIdx]?.text ?? "", false);
         inputRef.current?.focus();
       }, 200);
     } else {
+      playComplete();
       setPhase("done");
     }
   };
@@ -195,6 +183,7 @@ export function DiktatClient({ lesson, onBack }: { lesson: DiktatLesson; onBack?
         <button
           className="btn-primary text-xl"
           onClick={() => {
+            playClick();
             setPhase("listening");
             speak();
           }}
@@ -300,14 +289,14 @@ export function DiktatClient({ lesson, onBack }: { lesson: DiktatLesson; onBack?
       <div className="flex gap-3 mb-5">
         <button
           className="btn-primary flex-1"
-          onClick={speak}
+          onClick={() => { playClick(); speak(); }}
           aria-label="Satz vorlesen"
         >
           🎙️ Vorlesen
         </button>
         <button
           className="btn-secondary px-4"
-          onClick={() => speakGerman(current?.sentence.text ?? "", 0.55)}
+          onClick={() => { playClick(); void speakText(current?.sentence.text ?? "", true); }}
           aria-label="Satz langsam vorlesen"
           title="Langsam vorlesen"
         >
@@ -375,7 +364,7 @@ export function DiktatClient({ lesson, onBack }: { lesson: DiktatLesson; onBack?
       {phase === "typing" && (
         <button
           className="btn-primary w-full"
-          onClick={handleSubmit}
+          onClick={() => { playClick(); handleSubmit(); }}
           disabled={!current?.typed.trim()}
         >
           Überprüfen ✓
