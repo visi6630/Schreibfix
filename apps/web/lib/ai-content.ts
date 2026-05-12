@@ -1,7 +1,11 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { logApiCall, logError, computeClaudeCost } from "./logging";
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+let _anthropic: Anthropic | undefined;
+function getAnthropic(): Anthropic {
+  if (!_anthropic) _anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+  return _anthropic;
+}
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -94,7 +98,7 @@ Antworte NUR mit JSON-Array, kein weiterer Text:
 ]`;
 
   try {
-    const msg = await client.messages.create({
+    const msg = await getAnthropic().messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 1024,
       messages: [{ role: "user", content: prompt }],
@@ -154,7 +158,7 @@ Antworte NUR mit JSON-Array:
 ]`;
 
   try {
-    const msg = await client.messages.create({
+    const msg = await getAnthropic().messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 1500,
       messages: [{ role: "user", content: prompt }],
@@ -207,7 +211,7 @@ Antworte NUR mit JSON-Array:
 ]`;
 
   try {
-    const msg = await client.messages.create({
+    const msg = await getAnthropic().messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 1200,
       messages: [{ role: "user", content: prompt }],
@@ -251,7 +255,7 @@ Klasse 1-2: einfache, häufige Nomen. Klasse 3-4: auch unregelmäßige Pluralfor
 Antworte NUR mit JSON-Array:
 [{"singular":"Hund","plural":"Hunde","wrongOptions":["Hunden","Hunds","Hünde"],"hint":"Hund → Hunde"}]`;
   try {
-    const msg = await client.messages.create({ model: "claude-haiku-4-5-20251001", max_tokens: 900, messages: [{ role: "user", content: prompt }] });
+    const msg = await getAnthropic().messages.create({ model: "claude-haiku-4-5-20251001", max_tokens: 900, messages: [{ role: "user", content: prompt }] });
     void logApiCall({ userId, apiType: "claude", endpoint: "plural", tokensUsed: msg.usage.input_tokens + msg.usage.output_tokens, costEstimate: computeClaudeCost(msg.usage.input_tokens, msg.usage.output_tokens) });
     const raw = msg.content[0]?.type === "text" ? msg.content[0].text : "";
     return safeParseJson<PluralExerciseAI[]>(raw, PLURAL_FALLBACK.slice(0, count));
@@ -288,7 +292,7 @@ Format: Lückentext mit Adjektiv und gewünschter Form in Klammern.
 Antworte NUR mit JSON-Array:
 [{"sentence":"Der Hund ist ___ als die Katze. (groß, Komparativ)","correctAnswer":"größer","wrongOptions":["großer","am größten","großs"],"hint":"groß → größer"}]`;
   try {
-    const msg = await client.messages.create({ model: "claude-haiku-4-5-20251001", max_tokens: 1000, messages: [{ role: "user", content: prompt }] });
+    const msg = await getAnthropic().messages.create({ model: "claude-haiku-4-5-20251001", max_tokens: 1000, messages: [{ role: "user", content: prompt }] });
     void logApiCall({ userId, apiType: "claude", endpoint: "steigerung", tokensUsed: msg.usage.input_tokens + msg.usage.output_tokens, costEstimate: computeClaudeCost(msg.usage.input_tokens, msg.usage.output_tokens) });
     const raw = msg.content[0]?.type === "text" ? msg.content[0].text : "";
     return safeParseJson<SteigerungExerciseAI[]>(raw, STEIGERUNG_FALLBACK.slice(0, count));
@@ -322,7 +326,7 @@ Wortarten in dieser Übung: ${types}.
 Antworte NUR mit JSON-Array:
 [{"word":"Hund","sentence":"Der Hund bellt.","correctType":"Nomen","hint":"Nomen → groß geschrieben"}]`;
   try {
-    const msg = await client.messages.create({ model: "claude-haiku-4-5-20251001", max_tokens: 900, messages: [{ role: "user", content: prompt }] });
+    const msg = await getAnthropic().messages.create({ model: "claude-haiku-4-5-20251001", max_tokens: 900, messages: [{ role: "user", content: prompt }] });
     void logApiCall({ userId, apiType: "claude", endpoint: "wortarten", tokensUsed: msg.usage.input_tokens + msg.usage.output_tokens, costEstimate: computeClaudeCost(msg.usage.input_tokens, msg.usage.output_tokens) });
     const raw = msg.content[0]?.type === "text" ? msg.content[0].text : "";
     return safeParseJson<WortartenExerciseAI[]>(raw, WORTARTEN_FALLBACK.slice(0, count));
@@ -360,7 +364,7 @@ ${grade2note}
 Antworte NUR mit JSON-Array (Satz OHNE Satzzeichen am Ende):
 [{"sentence":"Wie heißt du","correctPunctuation":"?","hint":"Fragesatz → Fragezeichen"}]`;
   try {
-    const msg = await client.messages.create({ model: "claude-haiku-4-5-20251001", max_tokens: 800, messages: [{ role: "user", content: prompt }] });
+    const msg = await getAnthropic().messages.create({ model: "claude-haiku-4-5-20251001", max_tokens: 800, messages: [{ role: "user", content: prompt }] });
     void logApiCall({ userId, apiType: "claude", endpoint: "satzzeichen", tokensUsed: msg.usage.input_tokens + msg.usage.output_tokens, costEstimate: computeClaudeCost(msg.usage.input_tokens, msg.usage.output_tokens) });
     const raw = msg.content[0]?.type === "text" ? msg.content[0].text : "";
     return safeParseJson<SatzzeichenExerciseAI[]>(raw, SATZZEICHEN_FALLBACK.slice(0, count));
@@ -393,7 +397,7 @@ Jede Übung: Ein Satz mit EINEM falsch kleingeschriebenen Nomen. Gib 4 Wörter a
 Antworte NUR mit JSON-Array:
 [{"sentence":"die katze schläft.","options":["die","katze","schläft","auf"],"correctAnswer":"katze","hint":"Katze ist ein Nomen."}]`;
   try {
-    const msg = await client.messages.create({ model: "claude-haiku-4-5-20251001", max_tokens: 1000, messages: [{ role: "user", content: prompt }] });
+    const msg = await getAnthropic().messages.create({ model: "claude-haiku-4-5-20251001", max_tokens: 1000, messages: [{ role: "user", content: prompt }] });
     void logApiCall({ userId, apiType: "claude", endpoint: "grossschreibung", tokensUsed: msg.usage.input_tokens + msg.usage.output_tokens, costEstimate: computeClaudeCost(msg.usage.input_tokens, msg.usage.output_tokens) });
     const raw = msg.content[0]?.type === "text" ? msg.content[0].text : "";
     return safeParseJson<GrossschreibungExerciseAI[]>(raw, GROSSSCHREIBUNG_FALLBACK.slice(0, count));
@@ -427,7 +431,7 @@ Klasse 3: einfache SVO-Sätze. Klasse 4: auch Sätze mit Nebensatz.
 Antworte NUR mit JSON-Array:
 [{"prompt":"Katze / Die / schläft","correctSentence":"Die Katze schläft.","wrongOptions":["Schläft die Katze.","Die schläft Katze.","Katze Die schläft."],"hint":"Subjekt zuerst, dann Verb"}]`;
   try {
-    const msg = await client.messages.create({ model: "claude-haiku-4-5-20251001", max_tokens: 1200, messages: [{ role: "user", content: prompt }] });
+    const msg = await getAnthropic().messages.create({ model: "claude-haiku-4-5-20251001", max_tokens: 1200, messages: [{ role: "user", content: prompt }] });
     void logApiCall({ userId, apiType: "claude", endpoint: "satzbau", tokensUsed: msg.usage.input_tokens + msg.usage.output_tokens, costEstimate: computeClaudeCost(msg.usage.input_tokens, msg.usage.output_tokens) });
     const raw = msg.content[0]?.type === "text" ? msg.content[0].text : "";
     return safeParseJson<SatzbauExerciseAI[]>(raw, SATZBAU_FALLBACK.slice(0, count));
@@ -461,7 +465,7 @@ Lückentext mit Verb und "Präteritum" in Klammern.
 Antworte NUR mit JSON-Array:
 [{"sentence":"Er ___ ins Kino. (gehen, Präteritum)","correctAnswer":"ging","wrongOptions":["geht","gegangen","gings"],"hint":"gehen → ging"}]`;
   try {
-    const msg = await client.messages.create({ model: "claude-haiku-4-5-20251001", max_tokens: 1000, messages: [{ role: "user", content: prompt }] });
+    const msg = await getAnthropic().messages.create({ model: "claude-haiku-4-5-20251001", max_tokens: 1000, messages: [{ role: "user", content: prompt }] });
     void logApiCall({ userId, apiType: "claude", endpoint: "zeitformen", tokensUsed: msg.usage.input_tokens + msg.usage.output_tokens, costEstimate: computeClaudeCost(msg.usage.input_tokens, msg.usage.output_tokens) });
     const raw = msg.content[0]?.type === "text" ? msg.content[0].text : "";
     return safeParseJson<ZeitformenExerciseAI[]>(raw, ZEITFORMEN_FALLBACK.slice(0, count));
@@ -518,7 +522,7 @@ Antworte NUR mit JSON:
 }`;
 
   try {
-    const msg = await client.messages.create({
+    const msg = await getAnthropic().messages.create({
       model: "claude-haiku-4-5-20251001",
       max_tokens: 1024,
       messages: [{ role: "user", content: prompt }],

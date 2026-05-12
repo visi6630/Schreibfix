@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase-server";
 import type { SubscriptionTier, SubscriptionStatus } from "@schreibfix/core";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "");
+import { getStripe } from "@/lib/stripe";
 
 export const runtime = "nodejs";
 
@@ -40,6 +39,8 @@ export async function POST(req: NextRequest) {
   if (!webhookSecret || !sig) {
     return NextResponse.json({ error: "Webhook not configured" }, { status: 400 });
   }
+
+  const stripe = getStripe();
 
   let event: Stripe.Event;
   try {

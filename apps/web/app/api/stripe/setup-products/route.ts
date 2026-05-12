@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server";
-import Stripe from "stripe";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "");
+import { getStripe } from "@/lib/stripe";
 
 const PRODUCTS = [
   {
@@ -33,6 +31,7 @@ export async function POST() {
   if (!process.env.STRIPE_SECRET_KEY) {
     return NextResponse.json({ error: "STRIPE_SECRET_KEY not configured" }, { status: 500 });
   }
+  const stripe = getStripe();
 
   const results = [];
 

@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import Stripe from "stripe";
 import { createAdminClient } from "@/lib/supabase-server";
-
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "");
+import { getStripe } from "@/lib/stripe";
 
 export async function POST(req: NextRequest) {
   if (!process.env.STRIPE_SECRET_KEY) {
     return NextResponse.json({ error: "Stripe not configured" }, { status: 500 });
   }
+  const stripe = getStripe();
 
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
