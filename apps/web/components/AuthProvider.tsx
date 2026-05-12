@@ -18,14 +18,18 @@ function updateLastSeen(userId: string, email?: string | null): void {
   );
 }
 
-async function loadAdminFlag(userId: string): Promise<boolean> {
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("is_admin")
-    .eq("id", userId)
-    .maybeSingle();
-  if (error) console.warn("loadAdminFlag error:", error.message);
-  return (data as { is_admin: boolean } | null)?.is_admin === true;
+async function loadAdminFlag(accessToken: string): Promise<boolean> {
+  try {
+    const res = await fetch("/api/check-admin", {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (!res.ok) return false;
+    const data = (await res.json()) as { isAdmin: boolean };
+    return data.isAdmin === true;
+  } catch (e) {
+    console.warn("loadAdminFlag error:", e);
+    return false;
+  }
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -34,13 +38,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
-    // Initial session check — await admin flag so loading: false only when fully resolved
     supabase.auth.getSession().then(async ({ data }) => {
       const u = data.session?.user ?? null;
+      const token = data.session?.access_token;
       setUser(u);
-      if (u) {
+      if (u && token) {
         updateLastSeen(u.id, u.email);
-        const admin = await loadAdminFlag(u.id);
+        const admin = await loadAdminFlag(token);
         setIsAdmin(admin);
       }
       setLoading(false);
@@ -50,12 +54,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       const u = session?.user ?? null;
+      const token = session?.access_token;
       setUser(u);
       if (!u) {
         setIsAdmin(false);
       } else {
         updateLastSeen(u.id, u.email);
-        void loadAdminFlag(u.id).then(setIsAdmin);
+        if (token) {
+          void loadAdminFlag(token).then(setIsAdmin);
+        }
       }
     });
 

@@ -68,12 +68,19 @@ export async function generateDiktatSentences(
       : "";
   const topicPart = topic ? `Das Thema ist: ${topic}.` : "";
 
+  const gradeGuide =
+    grade === 1
+      ? "Klasse 1: lauttreue Wörter, 4-6 Wörter pro Satz, einfache konkrete Nomen, nur Basisverben (sein, haben, machen, spielen), KEINE Nebensätze"
+      : grade === 2
+      ? "Klasse 2: 5-8 Wörter, Konsonantenverdoppelung (mm,nn,ll,ss), ie/ei-Unterscheidung, unbetonte Endsilben (-el,-er,-en)"
+      : grade === 3
+      ? "Klasse 3: 7-10 Wörter, ss/ß-Unterscheidung, Auslautverhärtung, einfache Vorsilben (ver-, be-, ge-), einfache Nebensätze erlaubt"
+      : "Klasse 4: 9-13 Wörter, Komposita, Fremdwörter, alle Rechtschreibregeln, Haupt- und Nebensätze";
+
   const prompt = `Erstelle 5 korrekte deutsche Diktat-Sätze für Grundschule Klasse ${grade}.
 ${topicPart}
 ${weakPart}
-Anforderungen:
-- Klasse 1-2: kurze, einfache Sätze (5-8 Wörter), nur häufige Wörter
-- Klasse 3-4: etwas komplexere Sätze (8-12 Wörter), können Nebensätze enthalten
+Anforderungen pro Klasse: ${gradeGuide}
 - Grammatisch korrekt, natürlich klingend
 - Kindgerechte Themen (Tiere, Schule, Familie, Natur)
 
@@ -124,13 +131,15 @@ export async function generateVerbConjugation(
   userId?: string,
 ): Promise<VerbConjugationAI[]> {
   const tenses =
-    grade <= 2
-      ? "nur Präsens, Personen: ich / du / er"
-      : "Präsens und Präteritum, alle Personen (ich, du, er/sie/es, wir, ihr, sie)";
+    grade === 2
+      ? "nur Präsens; NUR Personen: ich / du / er/sie/es — KEIN wir/ihr/sie, KEIN Präteritum"
+      : grade === 3
+      ? "Präsens (alle Personen: ich/du/er/wir/ihr/sie) + Perfekt mit 'haben' für regelmäßige Verben (z.B. ich habe gespielt) — KEIN Präteritum"
+      : "Präsens (alle Personen) + Präteritum für: sein→war, haben→hatte, gehen→ging, kommen→kam, sehen→sah, fahren→fuhr, laufen→lief, essen→aß, schreiben→schrieb, lesen→las";
 
   const prompt = `Erstelle ${count} deutsche Verbkonjugations-Übungen für Grundschule Klasse ${grade}.
-Zeitformen: ${tenses}
-- Verschiedene Verben, auch unregelmäßige
+Zeitformen/Personen: ${tenses}
+- Kindgerechte Verben (spielen, laufen, essen, trinken, schreiben, lesen, machen, haben, sein, gehen, kommen, sehen)
 - Lückentext-Format: "Ich ___ Fußball. (spielen)"
 - 3 falsche Optionen, die plausibel aber falsch sind
 
@@ -270,8 +279,11 @@ const STEIGERUNG_FALLBACK: SteigerungExerciseAI[] = [
 ];
 
 export async function generateSteigerungExercises(grade: number, count: number, userId?: string): Promise<SteigerungExerciseAI[]> {
+  const forms = grade >= 4
+    ? "regelmäßige Formen UND unregelmäßige (gut→besser→am besten, viel→mehr→am meisten, hoch→höher→am höchsten)"
+    : "NUR regelmäßige Formen (klein→kleiner→am kleinsten) — KEINE unregelmäßigen";
   const prompt = `Erstelle ${count} Adjektiv-Steigerung-Übungen (Komparativ/Superlativ) für Grundschule Klasse ${grade}.
-Klasse 3: nur regelmäßige Formen. Klasse 4: auch unregelmäßige (gut→besser, viel→mehr).
+Formen: ${forms}.
 Format: Lückentext mit Adjektiv und gewünschter Form in Klammern.
 Antworte NUR mit JSON-Array:
 [{"sentence":"Der Hund ist ___ als die Katze. (groß, Komparativ)","correctAnswer":"größer","wrongOptions":["großer","am größten","großs"],"hint":"groß → größer"}]`;
@@ -304,9 +316,9 @@ const WORTARTEN_FALLBACK: WortartenExerciseAI[] = [
 ];
 
 export async function generateWortartenExercises(grade: number, count: number, userId?: string): Promise<WortartenExerciseAI[]> {
+  const types = grade >= 4 ? "alle vier: Nomen, Verb, Adjektiv, Artikel" : "nur Nomen und Verb (KEIN Adjektiv, KEIN Artikel)";
   const prompt = `Erstelle ${count} Wortarten-Erkennungs-Übungen für Grundschule Klasse ${grade}.
-Wortarten: Nomen, Verb, Adjektiv, Artikel.
-Klasse 3: Nomen/Verb/Adjektiv. Klasse 4: alle vier inkl. Artikel.
+Wortarten in dieser Übung: ${types}.
 Antworte NUR mit JSON-Array:
 [{"word":"Hund","sentence":"Der Hund bellt.","correctType":"Nomen","hint":"Nomen → groß geschrieben"}]`;
   try {
@@ -337,7 +349,12 @@ const SATZZEICHEN_FALLBACK: SatzzeichenExerciseAI[] = [
 ];
 
 export async function generateSatzzeichenExercises(grade: number, count: number, userId?: string): Promise<SatzzeichenExerciseAI[]> {
-  const grade2note = grade <= 2 ? "Nur Punkt und Fragezeichen (kein Ausrufezeichen)." : "Alle drei: Punkt, Fragezeichen, Ausrufezeichen.";
+  const grade2note =
+    grade === 1
+      ? "NUR Punkt (Aussagesätze) — KEIN Fragezeichen, KEIN Ausrufezeichen."
+      : grade === 2
+      ? "Nur Punkt und Fragezeichen — KEIN Ausrufezeichen."
+      : "Alle drei: Punkt, Fragezeichen, Ausrufezeichen.";
   const prompt = `Erstelle ${count} Satzzeichen-Übungen für Grundschule Klasse ${grade}.
 ${grade2note}
 Antworte NUR mit JSON-Array (Satz OHNE Satzzeichen am Ende):

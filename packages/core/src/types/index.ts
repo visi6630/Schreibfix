@@ -66,6 +66,7 @@ export interface GrammarExercise {
   id: string;
   category: GrammarCategory;
   klasse: Klasse;
+  gradeLevel?: Klasse[];  // explicit allowed grades; overrides klasse-based filtering when present
   prompt: string;
   options?: string[];
   correctAnswer: string;

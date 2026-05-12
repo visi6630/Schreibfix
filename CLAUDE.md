@@ -14,7 +14,8 @@ German spelling learning app for children.
 - **Supabase** — URL and anon/service keys in `apps/web/.env.local`
 - **Auth**: Supabase email auth, `/auth` page, protected routes via `ProtectedPage` component
 - **Database tables**: `profiles`, `progress`, `weak_words` (all with RLS enabled)
-  - `profiles`: `id` (UUID = auth.uid()), `klasse` (smallint 1–4, nullable)
+  - `profiles`: `id` (UUID = auth.uid()), `klasse` (smallint 1–4, nullable), `is_admin` (boolean), `email` (text), `registered_at` (timestamptz), `last_seen` (timestamptz), `vorname` (text), `nachname` (text), `avatar` (text default '🦊')
+    - Migration for profile columns: `ALTER TABLE profiles ADD COLUMN IF NOT EXISTS vorname TEXT; ALTER TABLE profiles ADD COLUMN IF NOT EXISTS nachname TEXT; ALTER TABLE profiles ADD COLUMN IF NOT EXISTS avatar TEXT DEFAULT '🦊';`
   - `progress`: `id`, `user_id`, `lesson_id`, `score`, `stars`, `completed_at`
     - Diktat rows: `lesson_id` like `"k1-tiere"`, `"k2-essen"`, etc.
     - Grammar rows: `lesson_id` like `"grammatik-verben"`, `"grammatik-adjektive"`, etc.
@@ -144,6 +145,7 @@ cd packages/core && npm run build
 - **Required Vercel environment variables**:
   - `ANTHROPIC_API_KEY` — Claude AI features (Diktat, Übungen, Lesen, Elternportal)
   - `ELEVENLABS_API_KEY` — ElevenLabs TTS (Charlotte voice, ID: `XB0fDUnXU5powFXDhCwa`); falls back to Web Speech API if missing
+  - `SUPABASE_SERVICE_ROLE_KEY` — service role key (Project Settings → API); used server-side to bypass RLS for admin checks (`/api/check-admin`)
 
 ## Deploy Check Script
 
