@@ -161,7 +161,7 @@ cd packages/core && npm run build
 - Output directory: `apps/web/.next` (Vercel's Root Directory must be `/`; the build runs from root so the full relative path is needed)
 - **Required Vercel environment variables**:
   - `ANTHROPIC_API_KEY` — Claude AI features (Diktat, Übungen, Lesen, Elternportal)
-  - `ELEVENLABS_API_KEY` — ElevenLabs TTS (Charlotte voice, ID: `XB0fDUnXU5powFXDhCwa`); falls back to Web Speech API if missing
+  - `ELEVENLABS_API_KEY` — ElevenLabs TTS (Rachel voice, ID: `21m00Tcm4TlvDq8ikWAM`, free-tier compatible); falls back to Web Speech API if missing
   - `SUPABASE_SERVICE_ROLE_KEY` — service role key (Project Settings → API → service_role key); used server-side by `/api/admin/check` to bypass RLS when querying `profiles`. **Must be set in Vercel and in `.env.local`** or `/admin` will always redirect to `/` even when `is_admin = true`.
 
 ## Deploy Check Script

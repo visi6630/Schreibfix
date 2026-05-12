@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { checkRateLimit, getIpKey } from "@/lib/rate-limit";
 import { logApiCall, logError, computeElevenLabsCost } from "@/lib/logging";
 
-const VOICE_ID = "XB0fDUnXU5powFXDhCwa"; // Charlotte — speaks German well
+const VOICE_ID = "21m00Tcm4TlvDq8ikWAM"; // Rachel — free-tier compatible
 
 export async function POST(req: NextRequest) {
   // Rate limiting: 50 ElevenLabs calls per hour per IP

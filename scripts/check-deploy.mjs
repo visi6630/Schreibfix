@@ -83,29 +83,23 @@ async function main() {
   console.log("──────────────────────────────────────────\n");
 
   try {
-    const { build } = await vercelFetch(`/v2/deployments/${dep.uid}/events`);
-    const events = Array.isArray(build) ? build : [];
-    const lines = events
+    const events = await vercelFetch(`/v2/deployments/${dep.uid}/events`);
+    const lines = (Array.isArray(events) ? events : [])
       .filter((e) => e.type === "stdout" || e.type === "stderr")
       .map((e) => e.payload?.text ?? "")
       .filter(Boolean);
 
-    const tail = lines.slice(-100);
-    for (const line of tail) process.stdout.write(line.endsWith("\n") ? line : line + "\n");
-  } catch (err) {
-    // Fall back to /v2/deployments/:id/events (different endpoint format)
-    try {
-      const events = await vercelFetch(`/v3/deployments/${dep.uid}/events?builds=1&limit=100`);
-      const lines = (Array.isArray(events) ? events : [])
-        .filter((e) => e.type === "stdout" || e.type === "stderr")
-        .map((e) => e.payload?.text ?? "")
-        .filter(Boolean);
-      for (const line of lines) process.stdout.write(line.endsWith("\n") ? line : line + "\n");
-    } catch {
-      console.warn("Could not retrieve build logs:", err.message);
-      console.log("\nOpen the Vercel dashboard to view the full logs:");
-      console.log(`https://vercel.com/dashboard (project: ${PROJECT_ID})`);
+    if (lines.length === 0) {
+      console.log("(no log lines returned)");
+    } else {
+      for (const line of lines.slice(-100)) {
+        process.stdout.write(line.endsWith("\n") ? line : line + "\n");
+      }
     }
+  } catch (err) {
+    console.warn("Could not retrieve build logs:", err.message);
+    console.log("\nOpen the Vercel dashboard to view the full logs:");
+    console.log(`https://vercel.com/dashboard (project: ${PROJECT_ID})`);
   }
 }
 
