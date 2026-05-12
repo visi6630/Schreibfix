@@ -5,7 +5,7 @@ import type { SubscriptionTier, SubscriptionStatus } from "@schreibfix/core";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? "");
 
-export const config = { api: { bodyParser: false } };
+export const runtime = "nodejs";
 
 function tierFromMetadata(metadata: Record<string, string> | null): SubscriptionTier {
   const t = metadata?.tier;
