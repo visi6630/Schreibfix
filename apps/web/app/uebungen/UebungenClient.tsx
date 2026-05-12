@@ -12,7 +12,9 @@ import {
   wordTypeExercises,
   sentenceBuildingExercises,
   pastTenseExercises,
+  vocabularyExercises,
   CURRICULUM_MIN_KLASSE,
+  filterByGrade,
 } from "@schreibfix/core";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
@@ -142,6 +144,17 @@ const EXERCISE_TYPES: ExerciseTypeConfig[] = [
     exercises: sentenceBuildingExercises,
     aiRoute: "/api/ai/satzbau",
   },
+  {
+    category: "vocabulary",
+    lessonId: "grammatik-wortschatz",
+    label: "Wortschatz",
+    icon: "📖",
+    description: "Lerne neue Synonyme!",
+    difficulty: "Mittel",
+    group: "Rechtschreibung",
+    exercises: vocabularyExercises,
+    aiRoute: "/api/ai/wortschatz",
+  },
 ];
 
 const DIFFICULTY_COLORS = {
@@ -226,6 +239,23 @@ function OptionButton({
   );
 }
 
+// ─── Vocabulary Card ──────────────────────────────────────────────────────────
+
+function VocabCard({ exercise }: { exercise: GrammarExercise }) {
+  if (!exercise.vocabData) return null;
+  const { emoji, definition, example } = exercise.vocabData;
+  return (
+    <div className="rounded-2xl bg-blue-50 border-2 border-blue-200 px-4 py-4 mb-4">
+      <div className="flex items-center gap-3 mb-2">
+        <span className="text-4xl">{emoji}</span>
+        <p className="text-2xl font-black text-blue-800">{exercise.correctAnswer}</p>
+      </div>
+      <p className="text-sm text-blue-700 mb-1">{definition}</p>
+      <p className="text-sm text-blue-600 italic">💬 {example}</p>
+    </div>
+  );
+}
+
 // ─── Hub Screen ───────────────────────────────────────────────────────────────
 
 function HubScreen({
@@ -247,7 +277,7 @@ function HubScreen({
   const renderCard = (cfg: ExerciseTypeConfig) => {
     const minKlasse = CURRICULUM_MIN_KLASSE[cfg.category] ?? 1;
     const locked = klasse < minKlasse;
-    const available = cfg.exercises.filter((e) => e.klasse <= klasse).length;
+    const available = filterByGrade(cfg.exercises, klasse).length;
     const isAiLoading = aiLoading === cfg.category;
 
     return (
@@ -257,7 +287,6 @@ function HubScreen({
           ${locked ? "border-gray-100 opacity-70" : "border-transparent"}`}
       >
         {locked ? (
-          // Locked overlay
           <div className="flex flex-col gap-1 text-left">
             <span className="text-3xl opacity-40">{cfg.icon}</span>
             <p className="font-black text-base leading-tight text-gray-400">{cfg.label}</p>
@@ -325,7 +354,7 @@ function HubScreen({
 
       <div>
         <h3 className="text-sm font-black text-gray-400 uppercase tracking-wider mb-3">
-          ✍️ Rechtschreibung
+          ✍️ Rechtschreibung & Wortschatz
         </h3>
         <div className="grid grid-cols-3 gap-3">
           {rechtschreibung.map(renderCard)}
@@ -360,6 +389,7 @@ function PlayingScreen({
 }) {
   const optionCount = exercise.options?.length ?? 4;
   const isSentenceBuilding = cfg.category === "sentence-building";
+  const isVocabulary = cfg.category === "vocabulary";
   const isThreeCol = (optionCount === 3 && !isSentenceBuilding);
   const gridClass = isSentenceBuilding
     ? "grid-cols-1"
@@ -393,6 +423,8 @@ function PlayingScreen({
             ? "Richtig! Super gemacht! 🎉"
             : feedback === "wrong"
             ? "Fast! Schau dir die Antwort an."
+            : isVocabulary
+            ? "Welches Wort bedeutet dasselbe?"
             : "Wähle die richtige Antwort!"}
         </p>
       </div>
@@ -419,6 +451,11 @@ function PlayingScreen({
             <p className="font-black text-5xl mb-1">{exercise.prompt}</p>
             <p className="text-gray-400 text-base">Welcher Artikel passt?</p>
           </>
+        ) : cfg.category === "vocabulary" ? (
+          <>
+            <p className="text-xs text-gray-400 mb-2 font-bold">Welches Wort bedeutet dasselbe wie …</p>
+            <p className="font-black text-4xl text-fox">{exercise.prompt}</p>
+          </>
         ) : (
           <p className="font-black text-xl">{exercise.prompt}</p>
         )}
@@ -444,8 +481,13 @@ function PlayingScreen({
         })}
       </div>
 
-      {/* Explanation */}
-      {feedback !== null && exercise.explanation && (
+      {/* Vocabulary card — shown after answering */}
+      {feedback !== null && isVocabulary && exercise.vocabData && (
+        <VocabCard exercise={exercise} />
+      )}
+
+      {/* Explanation (non-vocabulary) */}
+      {feedback !== null && exercise.explanation && !isVocabulary && (
         <div
           className={`rounded-2xl px-4 py-3 text-base font-bold mb-4
             ${feedback === "correct"
@@ -562,14 +604,17 @@ export function UebungenClient() {
       });
   }, [user]);
 
-  const getPool = (cfg: ExerciseTypeConfig) =>
-    cfg.exercises.filter((e) => e.klasse <= klasse);
+  const getPool = (cfg: ExerciseTypeConfig) => filterByGrade(cfg.exercises, klasse);
 
   const startSession = (cfg: ExerciseTypeConfig) => {
     const pool = getPool(cfg);
     const session = shuffleArray(pool).slice(0, EXERCISES_PER_SESSION).map((e) => {
-      if (e.category === "sentence-building" && e.options) {
-        return { ...e, options: shuffleArray(e.options) };
+      // Shuffle options for every exercise type (fix: previously only sentence-building was shuffled)
+      if (e.options && e.options.length > 1) {
+        // For noun-gender (der/die/das) keep fixed order; for all others shuffle
+        if (e.category !== "noun-gender" && e.category !== "punctuation" && e.category !== "word-types") {
+          return { ...e, options: shuffleArray(e.options) };
+        }
       }
       return e;
     });
@@ -649,7 +694,7 @@ export function UebungenClient() {
       : `Die richtige Antwort ist: ${current.correctAnswer}`;
     void speakText(ttsText, false);
 
-    const newAnswers = [...answers]; // already updated in handleSelect
+    const newAnswers = [...answers];
     const isLastExercise = currentIdx + 1 >= sessionExercises.length;
 
     if (isLastExercise) {

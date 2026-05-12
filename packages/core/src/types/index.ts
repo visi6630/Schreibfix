@@ -49,7 +49,8 @@ export type GrammarCategory =
   | "capitalization"
   | "word-types"
   | "sentence-building"
-  | "past-tense";
+  | "past-tense"
+  | "vocabulary";
 
 export type Tempus = "Präsens" | "Präteritum" | "Perfekt";
 
@@ -72,6 +73,7 @@ export interface GrammarExercise {
   correctAnswer: string;
   explanation?: string;
   xpReward: number;
+  vocabData?: { emoji: string; definition: string; example: string };
 }
 
 // ─── Progress & Gamification ─────────────────────────────────────────────────

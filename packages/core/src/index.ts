@@ -11,6 +11,7 @@ export {
   wordTypeExercises,
   sentenceBuildingExercises,
   pastTenseExercises,
+  vocabularyExercises,
 } from "./content/grammar-exercises.js";
 export { createSupabaseClient } from "./lib/supabase.js";
 export { buildWeakWordUpdates } from "./lib/weak-words.js";

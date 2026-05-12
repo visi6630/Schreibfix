@@ -282,6 +282,43 @@ const cards = [
   },
 ] as const;
 
+// ─── Spielzeit Banner ─────────────────────────────────────────────────────────
+
+function SpielzeitBanner({ userId }: { userId: string }) {
+  const [show, setShow] = useState(false);
+
+  useEffect(() => {
+    const key = `schreibfix_last_game_xp_${userId}`;
+    const lastGameXp = parseInt(localStorage.getItem(key) ?? "0", 10);
+    void supabase
+      .from("profiles")
+      .select("xp")
+      .eq("id", userId)
+      .maybeSingle()
+      .then(({ data }) => {
+        const currentXp = data?.xp ?? 0;
+        if (currentXp - lastGameXp >= 50) setShow(true);
+      });
+  }, [userId]);
+
+  if (!show) return null;
+
+  return (
+    <Link
+      href="/spiele"
+      className="block w-full mb-4 rounded-2xl bg-gradient-to-r from-purple-500 to-fox text-white px-5 py-4
+                 flex items-center gap-4 shadow-lg active:scale-95 transition-transform"
+    >
+      <span className="text-4xl">🎮</span>
+      <div>
+        <p className="font-black text-lg leading-tight">Spielzeit!</p>
+        <p className="text-sm opacity-90">Du hast 50 XP verdient — Zeit für Tic Tac Toe!</p>
+      </div>
+      <span className="ml-auto text-2xl opacity-70">›</span>
+    </Link>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function HomeClient() {
@@ -353,6 +390,9 @@ export function HomeClient() {
             </button>
           </div>
         )}
+
+        {/* Spielzeit banner — shown when 50+ XP since last game */}
+        {user && <SpielzeitBanner userId={user.id} />}
 
         {/* Logged in: show nav cards */}
         {user && (

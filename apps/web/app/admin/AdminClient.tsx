@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
@@ -48,6 +48,18 @@ type ErrorLog = {
   created_at: string;
 };
 
+type Subscription = {
+  id: string;
+  family_id: string;
+  tier: string;
+  status: string;
+  stripe_subscription_id: string | null;
+  paypal_subscription_id: string | null;
+  current_period_ends_at: string | null;
+  created_at: string;
+  updated_at: string;
+};
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function computeXpForProgress(rows: Progress[]): number {
@@ -86,6 +98,20 @@ function fmtDateTime(iso: string): string {
     minute: "2-digit",
   });
 }
+
+const TIER_LABELS: Record<string, string> = {
+  free: "Free",
+  plus: "Plus",
+  pro: "Pro",
+  school: "School",
+};
+
+const TIER_COLORS: Record<string, string> = {
+  free: "bg-gray-100 text-gray-600",
+  plus: "bg-blue-100 text-blue-700",
+  pro: "bg-purple-100 text-purple-700",
+  school: "bg-amber-100 text-amber-800",
+};
 
 // ─── Sub-components ───────────────────────────────────────────────────────────
 
@@ -144,14 +170,161 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
   );
 }
 
+// ─── Subscription Manager ─────────────────────────────────────────────────────
+
+function SubscriptionManager({
+  profiles,
+  token,
+}: {
+  profiles: Profile[];
+  token: string;
+}) {
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState<string | null>(null);
+  const [editTier, setEditTier] = useState<Record<string, string>>({});
+  const [editExpiry, setEditExpiry] = useState<Record<string, string>>({});
+
+  const loadSubs = useCallback(async () => {
+    const res = await fetch("/api/admin/subscriptions", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const data = await res.json() as { subscriptions?: Subscription[] };
+    setSubscriptions(data.subscriptions ?? []);
+    setLoading(false);
+  }, [token]);
+
+  useEffect(() => { void loadSubs(); }, [loadSubs]);
+
+  const subMap = new Map(subscriptions.map((s) => [s.family_id, s]));
+
+  const getEffectiveTier = (userId: string) => {
+    return editTier[userId] ?? subMap.get(userId)?.tier ?? "free";
+  };
+
+  const getEffectiveExpiry = (userId: string) => {
+    if (editExpiry[userId] !== undefined) return editExpiry[userId];
+    const exp = subMap.get(userId)?.current_period_ends_at;
+    return exp ? exp.slice(0, 10) : "";
+  };
+
+  const isManual = (userId: string) => {
+    return subMap.get(userId)?.stripe_subscription_id === "MANUAL";
+  };
+
+  const handleSave = async (userId: string) => {
+    setSaving(userId);
+    const tier = getEffectiveTier(userId);
+    const expiry = getEffectiveExpiry(userId);
+    await fetch("/api/admin/subscriptions", {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        userId,
+        tier,
+        expiresAt: expiry || null,
+      }),
+    });
+    await loadSubs();
+    setSaving(null);
+    // Clear local edits
+    setEditTier((prev) => { const n = { ...prev }; delete n[userId]; return n; });
+    setEditExpiry((prev) => { const n = { ...prev }; delete n[userId]; return n; });
+  };
+
+  if (loading) {
+    return <p className="text-gray-400 text-sm p-6">Lade Abonnements…</p>;
+  }
+
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead className="bg-gray-50 text-gray-400 text-xs uppercase tracking-wide">
+          <tr>
+            <th className="text-left px-5 py-3">E-Mail</th>
+            <th className="text-left px-4 py-3">Aktuell</th>
+            <th className="text-left px-4 py-3">Neues Tier</th>
+            <th className="text-left px-4 py-3">Läuft ab</th>
+            <th className="text-right px-4 py-3">Aktion</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-50">
+          {profiles.map((profile) => {
+            const sub = subMap.get(profile.id);
+            const currentTier = sub?.tier ?? "free";
+            const manual = isManual(profile.id);
+            const isSavingThis = saving === profile.id;
+
+            return (
+              <tr key={profile.id} className="hover:bg-gray-50">
+                <td className="px-5 py-3 text-gray-700 font-medium">
+                  <div className="flex items-center gap-2">
+                    {profile.email ?? <span className="text-gray-300">—</span>}
+                    {profile.is_admin && (
+                      <span className="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded font-bold">Admin</span>
+                    )}
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${TIER_COLORS[currentTier] ?? "bg-gray-100 text-gray-600"}`}>
+                      {TIER_LABELS[currentTier] ?? currentTier}
+                    </span>
+                    {manual && (
+                      <span className="text-xs bg-violet-100 text-violet-700 px-1.5 py-0.5 rounded font-bold">
+                        Manuell gesetzt
+                      </span>
+                    )}
+                  </div>
+                </td>
+                <td className="px-4 py-3">
+                  <select
+                    className="text-sm border border-gray-200 rounded-lg px-2 py-1 bg-white"
+                    value={getEffectiveTier(profile.id)}
+                    onChange={(e) => setEditTier((prev) => ({ ...prev, [profile.id]: e.target.value }))}
+                  >
+                    {["free", "plus", "pro", "school"].map((t) => (
+                      <option key={t} value={t}>{TIER_LABELS[t]}</option>
+                    ))}
+                  </select>
+                </td>
+                <td className="px-4 py-3">
+                  <input
+                    type="date"
+                    className="text-sm border border-gray-200 rounded-lg px-2 py-1 bg-white"
+                    value={getEffectiveExpiry(profile.id)}
+                    onChange={(e) => setEditExpiry((prev) => ({ ...prev, [profile.id]: e.target.value }))}
+                  />
+                </td>
+                <td className="px-4 py-3 text-right">
+                  <button
+                    onClick={() => { void handleSave(profile.id); }}
+                    disabled={isSavingThis}
+                    className="text-xs font-bold bg-orange-500 text-white px-3 py-1.5 rounded-lg hover:bg-orange-600 disabled:opacity-50 transition-colors"
+                  >
+                    {isSavingThis ? "…" : "Speichern"}
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function AdminClient() {
   const { user, loading: authLoading } = useAuth();
   const router = useRouter();
 
-  // Admin check state — independent from AuthProvider.isAdmin to avoid race conditions
   const [checkStatus, setCheckStatus] = useState<"loading" | "ok" | "denied">("loading");
+  const [adminToken, setAdminToken] = useState<string>("");
 
   const [dataLoading, setDataLoading] = useState(true);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -185,6 +358,7 @@ export function AdminClient() {
         const data = (await res.json()) as { isAdmin: boolean };
 
         if (data.isAdmin === true) {
+          setAdminToken(token);
           setCheckStatus("ok");
         } else {
           setCheckStatus("denied");
@@ -228,6 +402,7 @@ export function AdminClient() {
             .limit(30),
         ]);
 
+      // Show ALL users (including admin) sorted by registration date
       const sortedUsers = (usersRes.users ?? []).sort(
         (a, b) => new Date(b.registered_at).getTime() - new Date(a.registered_at).getTime(),
       );
@@ -262,7 +437,7 @@ export function AdminClient() {
     );
   }
 
-  // ── Section A: Users ────────────────────────────────────────────────────────
+  // ── Section A: Stats ────────────────────────────────────────────────────────
   const regularUsers = profiles.filter((p) => !p.is_admin);
 
   // ── Section B: Usage stats ──────────────────────────────────────────────────
@@ -333,11 +508,11 @@ export function AdminClient() {
             Benutzerübersicht
           </h2>
           <span className="bg-orange-100 text-orange-600 text-xs font-bold px-2.5 py-0.5 rounded-full">
-            {regularUsers.length} Nutzer
+            {profiles.length} Nutzer gesamt ({regularUsers.length} regulär)
           </span>
         </div>
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
-          {regularUsers.length === 0 ? (
+          {profiles.length === 0 ? (
             <p className="text-gray-400 text-sm p-6">Keine Nutzer gefunden.</p>
           ) : (
             <table className="w-full text-sm">
@@ -352,12 +527,19 @@ export function AdminClient() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">
-                {regularUsers.map((profile) => (
+                {profiles.map((profile) => (
                   <tr key={profile.id} className="hover:bg-gray-50">
                     <td className="px-5 py-3 text-gray-700 font-medium">
-                      {profile.email ?? (
-                        <span className="text-gray-300">—</span>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {profile.email ?? (
+                          <span className="text-gray-300">—</span>
+                        )}
+                        {profile.is_admin && (
+                          <span className="text-xs bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded font-bold">
+                            Admin
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-gray-500">
                       {profile.vorname || profile.nachname
@@ -384,6 +566,19 @@ export function AdminClient() {
         </div>
       </section>
 
+      {/* ── Section: Subscription Management ─────────────────────────────── */}
+      <section className="mb-10">
+        <div className="flex items-center gap-3 mb-4">
+          <h2 className="text-lg font-bold text-gray-700">
+            Abonnement-Verwaltung
+          </h2>
+          <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded">Test-Modus</span>
+        </div>
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
+          <SubscriptionManager profiles={profiles} token={adminToken} />
+        </div>
+      </section>
+
       {/* ── Section B: Usage Statistics ───────────────────────────────────── */}
       <section className="mb-10">
         <h2 className="text-lg font-bold text-gray-700 mb-4">
@@ -393,7 +588,7 @@ export function AdminClient() {
           <StatCard label="Übungen gesamt" value={allProgress.length} />
           <StatCard label="Diktate" value={totalDiktate} />
           <StatCard label="XP gesamt" value={totalXp} />
-          <StatCard label="Aktive Nutzer" value={regularUsers.length} />
+          <StatCard label="Reguläre Nutzer" value={regularUsers.length} />
         </div>
 
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-4">

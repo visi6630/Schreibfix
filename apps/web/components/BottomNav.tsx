@@ -7,6 +7,7 @@ const navItems = [
   { href: "/diktat",      label: "Diktat",      icon: "🎙️" },
   { href: "/uebungen",    label: "Übungen",     icon: "✏️" },
   { href: "/lesen",       label: "Lesen",       icon: "📖" },
+  { href: "/spiele",      label: "Spiele",      icon: "🎮" },
   { href: "/fortschritt", label: "Fortschritt", icon: "⭐" },
 ] as const;
 
@@ -27,14 +28,14 @@ export function BottomNav() {
             key={href}
             href={href}
             className={[
-              "flex flex-1 flex-col items-center gap-1 py-3 text-sm font-bold transition-colors",
+              "flex flex-1 flex-col items-center gap-0.5 py-2 text-xs font-bold transition-colors",
               active
                 ? "text-fox border-t-4 border-fox -mt-px"
                 : "text-gray-400 hover:text-fox",
             ].join(" ")}
             aria-current={active ? "page" : undefined}
           >
-            <span className="text-2xl leading-none" role="img" aria-hidden="true">
+            <span className="text-xl leading-none" role="img" aria-hidden="true">
               {icon}
             </span>
             <span>{label}</span>

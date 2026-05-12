@@ -6,6 +6,7 @@ export const CURRICULUM_MIN_KLASSE: Record<GrammarCategory, number> = {
   "plural":               1, // Einzahl & Mehrzahl ab Klasse 1
   "capitalization":       1, // Großschreibung ab Klasse 1
   "punctuation":          1, // Satzzeichen ab Klasse 1 (nur Punkt; Klasse 2 + Fragezeichen; Klasse 3 + Ausrufezeichen)
+  "vocabulary":           1, // Wortschatz ab Klasse 1
   "verb-conjugation":     2, // Verbkonjugation (Präsens) ab Klasse 2
   "adjective-comparison": 3, // Adjektiv-Steigerung ab Klasse 3
   "sentence-building":    3, // Satzbau ab Klasse 3
