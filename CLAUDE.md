@@ -140,7 +140,7 @@ cd packages/core && npm run build
 - `vercel.json` at project root — builds only `apps/web` via `turbo run build --filter=@schreibfix/web`
 - Turbo's dependency graph ensures `packages/core` is built first (before `apps/web`)
 - **Vercel dashboard**: Root Directory must be set to `/` (project root, not `apps/web`)
-- Output directory: `.next` (relative to `apps/web`; `vercel.json` uses `".next"` not `"apps/web/.next"`)
+- Output directory: `apps/web/.next` (Vercel's Root Directory must be `/`; the build runs from root so the full relative path is needed)
 - **Required Vercel environment variables**:
   - `ANTHROPIC_API_KEY` — Claude AI features (Diktat, Übungen, Lesen, Elternportal)
   - `ELEVENLABS_API_KEY` — ElevenLabs TTS (Charlotte voice, ID: `XB0fDUnXU5powFXDhCwa`); falls back to Web Speech API if missing
