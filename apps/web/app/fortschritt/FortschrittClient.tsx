@@ -19,7 +19,7 @@ const lessonMap = Object.fromEntries(diktatLessons.map((l) => [l.id, l]));
 
 function computeXp(rows: ProgressRow[]): number {
   return rows.reduce((sum, row) => {
-    if (row.lesson_id.startsWith("grammatik-")) {
+    if (row.lesson_id.startsWith("grammatik-") || row.lesson_id === "lesen-ai") {
       return sum + Math.round((row.score / 100) * 25);
     }
     const lesson = lessonMap[row.lesson_id];
@@ -121,16 +121,22 @@ export function FortschrittClient() {
   const { user } = useAuth();
   const [progress, setProgress] = useState<ProgressRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!user) return;
+    setLoading(true);
+    setFetchError(null);
     void supabase
       .from("progress")
-      .select("*")
+      .select("id, lesson_id, score, stars, completed_at")
       .eq("user_id", user.id)
       .order("completed_at", { ascending: false })
       .then(({ data, error }) => {
-        if (error) console.error("Fortschritt fetch error:", error);
+        if (error) {
+          console.error("Fortschritt fetch error:", error);
+          setFetchError(error.message);
+        }
         setProgress((data as ProgressRow[]) ?? []);
         setLoading(false);
       });
@@ -140,6 +146,16 @@ export function FortschrittClient() {
     return (
       <div className="flex items-center justify-center py-20 text-fox text-2xl font-black">
         🦊 Laden …
+      </div>
+    );
+  }
+
+  if (fetchError) {
+    return (
+      <div className="mx-auto max-w-lg px-4 py-20 text-center">
+        <p className="text-2xl mb-3">😕</p>
+        <p className="text-gray-500 font-bold">Daten konnten nicht geladen werden.</p>
+        <p className="text-xs text-gray-400 mt-2">{fetchError}</p>
       </div>
     );
   }
@@ -154,8 +170,11 @@ export function FortschrittClient() {
       : Math.round(((totalXp - levelStart) / (levelEnd - levelStart)) * 100);
   const streak = computeStreak(progress);
 
-  const diktatRows = progress.filter((p) => !p.lesson_id.startsWith("grammatik-"));
+  const diktatRows = progress.filter(
+    (p) => !p.lesson_id.startsWith("grammatik-") && p.lesson_id !== "lesen-ai",
+  );
   const grammatikRows = progress.filter((p) => p.lesson_id.startsWith("grammatik-"));
+  const lesenRows = progress.filter((p) => p.lesson_id === "lesen-ai");
 
   return (
     <div className="mx-auto max-w-lg px-4 py-8">
@@ -198,70 +217,97 @@ export function FortschrittClient() {
         <p className="text-base font-bold text-fox-dark">{getMotivation(totalXp)}</p>
       </div>
 
-      {/* Diktat results */}
-      <h3 className="text-lg font-black mb-3">🎙️ Diktate</h3>
-      {diktatRows.length === 0 ? (
-        <div className="card text-center py-8 mb-5">
-          <p className="text-gray-400">Noch kein Diktat gemacht!</p>
+      {progress.length === 0 && (
+        <div className="card text-center py-10 mb-5">
+          <p className="text-4xl mb-3">📝</p>
+          <p className="font-black text-gray-600">Noch keine Übungen gemacht!</p>
+          <p className="text-sm text-gray-400 mt-1">
+            Mach ein Diktat oder eine Übung, um hier deinen Fortschritt zu sehen.
+          </p>
         </div>
-      ) : (
-        <div className="flex flex-col gap-3 mb-6">
-          {diktatRows.map((p) => {
-            const lesson = lessonMap[p.lesson_id];
-            return (
+      )}
+
+      {/* Diktat results */}
+      {diktatRows.length > 0 && (
+        <>
+          <h3 className="text-lg font-black mb-3">🎙️ Diktate</h3>
+          <div className="flex flex-col gap-3 mb-6">
+            {diktatRows.map((p) => {
+              const lesson = lessonMap[p.lesson_id];
+              const isKi = p.lesson_id === "ki-diktat" || p.lesson_id.startsWith("ai-");
+              return (
+                <div key={p.id} className="card flex items-center gap-4">
+                  <span className="text-2xl w-14 text-center shrink-0">
+                    {starsDisplay(p.stars)}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-black truncate">
+                      {isKi ? "🤖 KI-Diktat" : (lesson?.title ?? p.lesson_id)}
+                    </p>
+                    <p className="text-sm text-gray-400">
+                      {formatDate(p.completed_at)}
+                      {lesson ? ` · Klasse ${lesson.klasse}` : ""}
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <p className="font-black text-fox">{p.score}%</p>
+                    <p className="text-xs text-gray-400">
+                      +{Math.round((p.score / 100) * (lesson?.xpReward ?? 30))} XP
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {/* Grammatik results */}
+      {grammatikRows.length > 0 && (
+        <>
+          <h3 className="text-lg font-black mb-3">✏️ Grammatik-Übungen</h3>
+          <div className="flex flex-col gap-3 mb-6">
+            {grammatikRows.map((p) => (
               <div key={p.id} className="card flex items-center gap-4">
                 <span className="text-2xl w-14 text-center shrink-0">
                   {starsDisplay(p.stars)}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <p className="font-black truncate">
-                    {lesson?.title ?? p.lesson_id}
-                  </p>
-                  <p className="text-sm text-gray-400">
-                    {formatDate(p.completed_at)}
-                    {lesson ? ` · Klasse ${lesson.klasse}` : ""}
-                  </p>
+                  <p className="font-black truncate">{grammarLabel(p.lesson_id)}</p>
+                  <p className="text-sm text-gray-400">{formatDate(p.completed_at)}</p>
                 </div>
                 <div className="text-right shrink-0">
                   <p className="font-black text-fox">{p.score}%</p>
-                  <p className="text-xs text-gray-400">
-                    +{Math.round((p.score / 100) * (lesson?.xpReward ?? 30))} XP
-                  </p>
+                  <p className="text-xs text-gray-400">+{Math.round((p.score / 100) * 25)} XP</p>
                 </div>
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
+        </>
       )}
 
-      {/* Grammatik results */}
-      <h3 className="text-lg font-black mb-3">✏️ Grammatik-Übungen</h3>
-      {grammatikRows.length === 0 ? (
-        <div className="card text-center py-8 mb-5">
-          <p className="text-gray-400">Noch keine Übungen gemacht!</p>
-        </div>
-      ) : (
-        <div className="flex flex-col gap-3">
-          {grammatikRows.map((p) => (
-            <div key={p.id} className="card flex items-center gap-4">
-              <span className="text-2xl w-14 text-center shrink-0">
-                {starsDisplay(p.stars)}
-              </span>
-              <div className="flex-1 min-w-0">
-                <p className="font-black truncate">
-                  {grammarLabel(p.lesson_id)}
-                </p>
-                <p className="text-sm text-gray-400">{formatDate(p.completed_at)}</p>
+      {/* Lesen results */}
+      {lesenRows.length > 0 && (
+        <>
+          <h3 className="text-lg font-black mb-3">📖 Lesen</h3>
+          <div className="flex flex-col gap-3">
+            {lesenRows.map((p) => (
+              <div key={p.id} className="card flex items-center gap-4">
+                <span className="text-2xl w-14 text-center shrink-0">
+                  {starsDisplay(p.stars)}
+                </span>
+                <div className="flex-1 min-w-0">
+                  <p className="font-black truncate">🤖 KI-Lesetext</p>
+                  <p className="text-sm text-gray-400">{formatDate(p.completed_at)}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <p className="font-black text-fox">{p.score}%</p>
+                  <p className="text-xs text-gray-400">+{Math.round((p.score / 100) * 25)} XP</p>
+                </div>
               </div>
-              <div className="text-right shrink-0">
-                <p className="font-black text-fox">{p.score}%</p>
-                <p className="text-xs text-gray-400">
-                  +{Math.round((p.score / 100) * 25)} XP
-                </p>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

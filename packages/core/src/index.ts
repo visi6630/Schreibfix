@@ -19,3 +19,4 @@ export { verbConjugationPool, getRandomVerbExercises } from "./content/verb-conj
 export { artikelPool, getRandomArtikelExercises } from "./content/artikel-pool.js";
 export { readingTextsPool, getRandomReadingTexts } from "./content/reading-texts-pool.js";
 export type { ReadingTextStatic } from "./content/reading-texts-pool.js";
+export { CURRICULUM_MIN_KLASSE, filterByGrade } from "./content/curriculum.js";

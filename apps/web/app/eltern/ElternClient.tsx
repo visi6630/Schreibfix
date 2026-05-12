@@ -26,7 +26,14 @@ type DayActivity = {
   count: number;
 };
 
-// ─── XP helpers (matching FortschrittClient) ─────────────────────────────────
+type ChildProfile = {
+  id: string;
+  name: string;
+  grade: Klasse;
+  avatar: string;
+};
+
+// ─── XP helpers ───────────────────────────────────────────────────────────────
 
 function computeXp(rows: ProgressRow[]): number {
   return rows.reduce((sum, row) => {
@@ -68,7 +75,7 @@ async function fetchEncouragement(
   xp: number,
   totalExercises: number,
   topWeakWords: string[],
-  klasse: Klasse
+  klasse: Klasse,
 ): Promise<string> {
   try {
     const res = await fetch("/api/ai/encouragement", {
@@ -101,7 +108,94 @@ function ActivityBar({ day, count, max }: { day: DayActivity; count: number; max
   );
 }
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Child form modal ─────────────────────────────────────────────────────────
+
+const AVATARS = ["🦊", "🦝", "🐺", "🦁", "🐯"];
+
+function AddChildModal({
+  onSave,
+  onClose,
+}: {
+  onSave: (name: string, grade: Klasse, avatar: string) => void;
+  onClose: () => void;
+}) {
+  const [name, setName] = useState("");
+  const [grade, setGrade] = useState<Klasse>(1);
+  const [avatar, setAvatar] = useState("🦊");
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4">
+      <div className="bg-white rounded-2xl shadow-xl p-6 w-full max-w-sm">
+        <h3 className="text-lg font-black mb-4">Kind hinzufügen</h3>
+
+        {/* Avatar picker */}
+        <div className="flex gap-3 mb-4 justify-center">
+          {AVATARS.map((a) => (
+            <button
+              key={a}
+              onClick={() => setAvatar(a)}
+              className={`text-3xl rounded-xl p-2 transition-all ${
+                avatar === a ? "bg-fox-light scale-110 ring-2 ring-fox" : "hover:bg-gray-50"
+              }`}
+            >
+              {a}
+            </button>
+          ))}
+        </div>
+
+        <div className="mb-3">
+          <label className="block text-sm font-bold text-gray-500 mb-1">Name des Kindes</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="z. B. Emma"
+            className="w-full rounded-xl border-2 border-gray-200 px-3 py-2 text-base font-bold focus:border-fox focus:outline-none"
+          />
+        </div>
+
+        <div className="mb-5">
+          <label className="block text-sm font-bold text-gray-500 mb-1">Klasse</label>
+          <div className="grid grid-cols-4 gap-2">
+            {([1, 2, 3, 4] as Klasse[]).map((k) => (
+              <button
+                key={k}
+                onClick={() => setGrade(k)}
+                className={`rounded-xl py-2 font-black transition-all ${
+                  grade === k
+                    ? "bg-fox text-white"
+                    : "border-2 border-gray-200 hover:border-fox"
+                }`}
+              >
+                {k}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 py-2 rounded-xl border-2 border-gray-200 font-bold text-gray-500 hover:border-gray-300"
+          >
+            Abbrechen
+          </button>
+          <button
+            onClick={() => {
+              if (name.trim()) onSave(name.trim(), grade, avatar);
+            }}
+            disabled={!name.trim()}
+            className="flex-1 py-2 rounded-xl bg-fox text-white font-black hover:bg-fox/90 disabled:opacity-50"
+          >
+            Hinzufügen
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Dashboard ────────────────────────────────────────────────────────────────
 
 export function ElternClient() {
   const { user } = useAuth();
@@ -112,23 +206,29 @@ export function ElternClient() {
   const [encouragement, setEncouragement] = useState<string>("");
   const [aiLoading, setAiLoading] = useState(false);
 
+  // Multi-child state
+  const [children, setChildren] = useState<ChildProfile[]>([]);
+  const [showAddChild, setShowAddChild] = useState(false);
+  const [savingChild, setSavingChild] = useState(false);
+
   useEffect(() => {
     if (!user) return;
 
     const fetchAll = async () => {
-      const [profileRes, progressRes, weakRes] = await Promise.all([
+      const [profileRes, progressRes, weakRes, childrenRes] = await Promise.all([
         supabase.from("profiles").select("klasse").eq("id", user.id).maybeSingle(),
         supabase.from("progress").select("*").eq("user_id", user.id).order("completed_at", { ascending: false }),
         supabase.from("weak_words").select("word, wrong_count").eq("user_id", user.id).order("wrong_count", { ascending: false }).limit(5),
+        supabase.from("children").select("*").eq("parent_id", user.id).order("created_at", { ascending: true }),
       ]);
 
       const k = (profileRes.data?.klasse as Klasse) ?? 1;
       setKlasse(k);
       setProgress((progressRes.data as ProgressRow[]) ?? []);
       setWeakWords((weakRes.data as WeakWordRow[]) ?? []);
+      if (childrenRes.data) setChildren(childrenRes.data as ChildProfile[]);
       setLoading(false);
 
-      // AI encouragement — fetch separately so it doesn't block
       const rows = (progressRes.data as ProgressRow[]) ?? [];
       const xp = computeXp(rows);
       const words = ((weakRes.data as WeakWordRow[]) ?? []).map((w) => w.word);
@@ -140,6 +240,21 @@ export function ElternClient() {
 
     void fetchAll();
   }, [user]);
+
+  const handleAddChild = async (name: string, grade: Klasse, avatar: string) => {
+    if (!user || children.length >= 4) return;
+    setSavingChild(true);
+    const { data, error } = await supabase
+      .from("children")
+      .insert({ parent_id: user.id, name, grade, avatar })
+      .select()
+      .single();
+    if (!error && data) {
+      setChildren((prev) => [...prev, data as ChildProfile]);
+    }
+    setSavingChild(false);
+    setShowAddChild(false);
+  };
 
   if (!user) {
     return (
@@ -163,14 +278,10 @@ export function ElternClient() {
   const totalXp = computeXp(progress);
   const levelTitle = getLevel(totalXp);
 
-  // This week's exercises
   const weekAgo = new Date();
   weekAgo.setDate(weekAgo.getDate() - 7);
-  const weekExercises = progress.filter(
-    (p) => new Date(p.completed_at) >= weekAgo
-  );
+  const weekExercises = progress.filter((p) => new Date(p.completed_at) >= weekAgo);
 
-  // Daily activity for bar chart
   const days = last7Days();
   const activityByDay: DayActivity[] = days.map((date) => ({
     date,
@@ -180,6 +291,13 @@ export function ElternClient() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-10">
+      {showAddChild && (
+        <AddChildModal
+          onSave={(n, g, a) => { void handleAddChild(n, g, a); }}
+          onClose={() => setShowAddChild(false)}
+        />
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between mb-8">
         <div>
@@ -189,6 +307,49 @@ export function ElternClient() {
         <Link href="/" className="text-sm text-orange-500 hover:underline">
           ← Zur App
         </Link>
+      </div>
+
+      {/* Children profiles */}
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-sm font-semibold text-gray-400 uppercase tracking-wider">
+            Meine Kinder
+          </h2>
+          {children.length < 4 && (
+            <button
+              onClick={() => setShowAddChild(true)}
+              disabled={savingChild}
+              className="text-sm font-bold text-orange-500 hover:underline disabled:opacity-50"
+            >
+              + Kind hinzufügen
+            </button>
+          )}
+        </div>
+
+        {children.length === 0 ? (
+          <div className="text-center py-4">
+            <p className="text-gray-400 text-sm mb-3">Noch keine Kindprofile angelegt.</p>
+            <button
+              onClick={() => setShowAddChild(true)}
+              className="text-sm font-bold text-orange-500 border border-orange-200 rounded-lg px-4 py-2 hover:bg-orange-50"
+            >
+              Erstes Kind hinzufügen
+            </button>
+          </div>
+        ) : (
+          <div className="flex gap-3 flex-wrap">
+            {children.map((child) => (
+              <div
+                key={child.id}
+                className="flex flex-col items-center gap-1 bg-orange-50 rounded-xl p-3 min-w-[72px]"
+              >
+                <span className="text-3xl">{child.avatar}</span>
+                <span className="text-sm font-black text-gray-700">{child.name}</span>
+                <span className="text-xs text-gray-400">Klasse {child.grade}</span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Overview cards */}

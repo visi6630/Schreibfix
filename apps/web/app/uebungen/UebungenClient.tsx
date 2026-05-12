@@ -12,10 +12,12 @@ import {
   wordTypeExercises,
   sentenceBuildingExercises,
   pastTenseExercises,
+  CURRICULUM_MIN_KLASSE,
 } from "@schreibfix/core";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import { playCorrect, playWrong, playComplete } from "@/lib/sounds";
+import { speakText } from "@/lib/tts";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -34,6 +36,7 @@ interface ExerciseTypeConfig {
   difficulty: "Einfach" | "Mittel" | "Fortgeschritten";
   group: "Grammatik" | "Rechtschreibung";
   exercises: GrammarExercise[];
+  aiRoute: string;
 }
 
 const EXERCISE_TYPES: ExerciseTypeConfig[] = [
@@ -47,6 +50,7 @@ const EXERCISE_TYPES: ExerciseTypeConfig[] = [
     difficulty: "Einfach",
     group: "Grammatik",
     exercises: verbConjugationExercises,
+    aiRoute: "/api/ai/verben",
   },
   {
     category: "noun-gender",
@@ -57,6 +61,7 @@ const EXERCISE_TYPES: ExerciseTypeConfig[] = [
     difficulty: "Einfach",
     group: "Grammatik",
     exercises: nounGenderExercises,
+    aiRoute: "/api/ai/artikel",
   },
   {
     category: "plural",
@@ -67,6 +72,7 @@ const EXERCISE_TYPES: ExerciseTypeConfig[] = [
     difficulty: "Mittel",
     group: "Grammatik",
     exercises: pluralExercises,
+    aiRoute: "/api/ai/plural",
   },
   {
     category: "adjective-comparison",
@@ -77,6 +83,7 @@ const EXERCISE_TYPES: ExerciseTypeConfig[] = [
     difficulty: "Mittel",
     group: "Grammatik",
     exercises: adjectiveComparisonExercises,
+    aiRoute: "/api/ai/steigerung",
   },
   {
     category: "word-types",
@@ -87,6 +94,7 @@ const EXERCISE_TYPES: ExerciseTypeConfig[] = [
     difficulty: "Mittel",
     group: "Grammatik",
     exercises: wordTypeExercises,
+    aiRoute: "/api/ai/wortarten",
   },
   {
     category: "past-tense",
@@ -97,6 +105,7 @@ const EXERCISE_TYPES: ExerciseTypeConfig[] = [
     difficulty: "Fortgeschritten",
     group: "Grammatik",
     exercises: pastTenseExercises,
+    aiRoute: "/api/ai/zeitformen",
   },
   // ── Rechtschreibung ────────────────────────────────────────────────────────
   {
@@ -108,6 +117,7 @@ const EXERCISE_TYPES: ExerciseTypeConfig[] = [
     difficulty: "Einfach",
     group: "Rechtschreibung",
     exercises: punctuationExercises,
+    aiRoute: "/api/ai/satzzeichen",
   },
   {
     category: "capitalization",
@@ -118,6 +128,7 @@ const EXERCISE_TYPES: ExerciseTypeConfig[] = [
     difficulty: "Mittel",
     group: "Rechtschreibung",
     exercises: capitalizationExercises,
+    aiRoute: "/api/ai/grossschreibung",
   },
   {
     category: "sentence-building",
@@ -128,13 +139,14 @@ const EXERCISE_TYPES: ExerciseTypeConfig[] = [
     difficulty: "Fortgeschritten",
     group: "Rechtschreibung",
     exercises: sentenceBuildingExercises,
+    aiRoute: "/api/ai/satzbau",
   },
 ];
 
 const DIFFICULTY_COLORS = {
-  Einfach:        "bg-forest-light text-forest-dark",
-  Mittel:         "bg-amber-100 text-amber-800",
-  Fortgeschritten:"bg-red-100 text-red-700",
+  Einfach:         "bg-forest-light text-forest-dark",
+  Mittel:          "bg-amber-100 text-amber-800",
+  Fortgeschritten: "bg-red-100 text-red-700",
 };
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -146,6 +158,43 @@ function shuffleArray<T>(arr: T[]): T[] {
     [a[i], a[j]] = [a[j]!, a[i]!];
   }
   return a;
+}
+
+// Convert AI response objects into GrammarExercise for common patterns
+function aiResponseToExercise(
+  category: GrammarCategory,
+  klasse: Klasse,
+  index: number,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  item: any,
+): GrammarExercise {
+  const base = { category, klasse, xpReward: 5 as const };
+  if (category === "verb-conjugation") {
+    return { ...base, id: `ai-verb-${Date.now()}-${index}`, prompt: item.sentence as string, options: shuffleArray([item.correctAnswer, ...item.wrongOptions] as string[]), correctAnswer: item.correctAnswer as string, explanation: `Das Verb "${item.verb as string}" wird hier so konjugiert.` };
+  }
+  if (category === "noun-gender") {
+    return { ...base, id: `ai-artikel-${Date.now()}-${index}`, prompt: `${item.emoji as string} ${item.noun as string}`, options: ["der", "die", "das"], correctAnswer: item.correctArticle as string, explanation: item.hint as string };
+  }
+  if (category === "plural") {
+    return { ...base, id: `ai-plural-${Date.now()}-${index}`, prompt: `Wie heißt die Mehrzahl von „${item.singular as string}"?`, options: shuffleArray([item.plural, ...item.wrongOptions] as string[]), correctAnswer: item.plural as string, explanation: item.hint as string };
+  }
+  if (category === "adjective-comparison") {
+    return { ...base, id: `ai-steigerung-${Date.now()}-${index}`, prompt: item.sentence as string, options: shuffleArray([item.correctAnswer, ...item.wrongOptions] as string[]), correctAnswer: item.correctAnswer as string, explanation: item.hint as string };
+  }
+  if (category === "word-types") {
+    return { ...base, id: `ai-wortarten-${Date.now()}-${index}`, prompt: `„${item.word as string}" — ${item.sentence as string}`, options: ["Nomen", "Verb", "Adjektiv", "Artikel"], correctAnswer: item.correctType as string, explanation: item.hint as string };
+  }
+  if (category === "punctuation") {
+    return { ...base, id: `ai-satzzeichen-${Date.now()}-${index}`, prompt: `${item.sentence as string} _`, options: [".", "?", "!"], correctAnswer: item.correctPunctuation as string, explanation: item.hint as string };
+  }
+  if (category === "capitalization") {
+    return { ...base, id: `ai-gross-${Date.now()}-${index}`, prompt: item.sentence as string, options: item.options as string[], correctAnswer: item.correctAnswer as string, explanation: item.hint as string };
+  }
+  if (category === "sentence-building") {
+    return { ...base, id: `ai-satzbau-${Date.now()}-${index}`, prompt: `Wörter: ${item.prompt as string}`, options: shuffleArray([item.correctSentence, ...item.wrongOptions] as string[]), correctAnswer: item.correctSentence as string, explanation: item.hint as string };
+  }
+  // past-tense / zeitformen
+  return { ...base, id: `ai-zeitformen-${Date.now()}-${index}`, prompt: item.sentence as string, options: shuffleArray([item.correctAnswer, ...item.wrongOptions] as string[]), correctAnswer: item.correctAnswer as string, explanation: item.hint as string };
 }
 
 // ─── Option Button ────────────────────────────────────────────────────────────
@@ -182,52 +231,68 @@ function HubScreen({
   klasse,
   onSelect,
   onRandom,
-  onAiVerben,
-  onAiArtikel,
+  onAi,
   aiLoading,
 }: {
   klasse: Klasse;
   onSelect: (cfg: ExerciseTypeConfig) => void;
   onRandom: () => void;
-  onAiVerben: () => void;
-  onAiArtikel: () => void;
+  onAi: (cfg: ExerciseTypeConfig) => void;
   aiLoading: string | null;
 }) {
   const grammatik = EXERCISE_TYPES.filter((t) => t.group === "Grammatik");
   const rechtschreibung = EXERCISE_TYPES.filter((t) => t.group === "Rechtschreibung");
 
   const renderCard = (cfg: ExerciseTypeConfig) => {
+    const minKlasse = CURRICULUM_MIN_KLASSE[cfg.category] ?? 1;
+    const locked = klasse < minKlasse;
     const available = cfg.exercises.filter((e) => e.klasse <= klasse).length;
-    const isAiSupported = cfg.category === "verb-conjugation" || cfg.category === "noun-gender";
-    const thisAiLoading =
-      (cfg.category === "verb-conjugation" && aiLoading === "verben") ||
-      (cfg.category === "noun-gender" && aiLoading === "artikel");
+    const isAiLoading = aiLoading === cfg.category;
 
     return (
-      <div key={cfg.category} className="card text-left border-2 border-transparent flex flex-col gap-2 p-3">
-        <button
-          onClick={() => onSelect(cfg)}
-          className="flex flex-col gap-1 text-left"
-        >
-          <span className="text-3xl">{cfg.icon}</span>
-          <p className="font-black text-base leading-tight">{cfg.label}</p>
-          <p className="text-xs text-gray-500 leading-snug">{cfg.description}</p>
-          <div className="flex items-center gap-1.5 mt-1">
-            <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${DIFFICULTY_COLORS[cfg.difficulty]}`}>
-              {cfg.difficulty}
-            </span>
-            <span className="text-xs text-gray-400">{available} Aufg.</span>
+      <div
+        key={cfg.category}
+        className={`card text-left border-2 flex flex-col gap-2 p-3 relative overflow-hidden
+          ${locked ? "border-gray-100 opacity-70" : "border-transparent"}`}
+      >
+        {locked ? (
+          // Locked overlay
+          <div className="flex flex-col gap-1 text-left">
+            <span className="text-3xl opacity-40">{cfg.icon}</span>
+            <p className="font-black text-base leading-tight text-gray-400">{cfg.label}</p>
+            <p className="text-xs text-gray-400 leading-snug">{cfg.description}</p>
+            <div className="mt-1 flex items-center gap-1 bg-gray-100 rounded-lg px-2 py-1">
+              <span className="text-sm">🔒</span>
+              <span className="text-xs font-bold text-gray-500">Ab Klasse {minKlasse}</span>
+            </div>
           </div>
-        </button>
-        {isAiSupported && (
-          <button
-            onClick={cfg.category === "verb-conjugation" ? onAiVerben : onAiArtikel}
-            disabled={aiLoading !== null}
-            className="mt-1 text-xs font-bold text-violet-600 border border-violet-300 rounded-lg px-2 py-1
-                       hover:bg-violet-50 disabled:opacity-50 disabled:cursor-wait transition-colors"
-          >
-            {thisAiLoading ? "⏳ Lädt…" : "🤖 Neue Aufgaben"}
-          </button>
+        ) : (
+          <>
+            <button
+              onClick={() => onSelect(cfg)}
+              className="flex flex-col gap-1 text-left"
+            >
+              <span className="text-3xl">{cfg.icon}</span>
+              <p className="font-black text-base leading-tight">{cfg.label}</p>
+              <p className="text-xs text-gray-500 leading-snug">{cfg.description}</p>
+              <div className="flex items-center gap-1.5 mt-1">
+                <span
+                  className={`text-xs font-bold px-2 py-0.5 rounded-full ${DIFFICULTY_COLORS[cfg.difficulty]}`}
+                >
+                  {cfg.difficulty}
+                </span>
+                <span className="text-xs text-gray-400">{available} Aufg.</span>
+              </div>
+            </button>
+            <button
+              onClick={() => onAi(cfg)}
+              disabled={aiLoading !== null}
+              className="mt-1 text-xs font-bold text-violet-600 border border-violet-300 rounded-lg px-2 py-1
+                         hover:bg-violet-50 disabled:opacity-50 disabled:cursor-wait transition-colors"
+            >
+              {isAiLoading ? "⏳ Lädt…" : "🤖 Neue Aufgaben"}
+            </button>
+          </>
         )}
       </div>
     );
@@ -248,11 +313,11 @@ function HubScreen({
         🎲 Zufällige Übung
       </button>
 
-      <div className="mb-2">
+      <div className="mb-6">
         <h3 className="text-sm font-black text-gray-400 uppercase tracking-wider mb-3">
           📚 Grammatik
         </h3>
-        <div className="grid grid-cols-3 gap-3 mb-6">
+        <div className="grid grid-cols-3 gap-3">
           {grammatik.map(renderCard)}
         </div>
       </div>
@@ -278,7 +343,9 @@ function PlayingScreen({
   total,
   selected,
   feedback,
+  waitingNext,
   onSelect,
+  onNext,
 }: {
   cfg: ExerciseTypeConfig;
   exercise: GrammarExercise;
@@ -286,7 +353,9 @@ function PlayingScreen({
   total: number;
   selected: string | null;
   feedback: "correct" | "wrong" | null;
+  waitingNext: boolean;
   onSelect: (option: string) => void;
+  onNext: () => void;
 }) {
   const optionCount = exercise.options?.length ?? 4;
   const isSentenceBuilding = cfg.category === "sentence-building";
@@ -377,13 +446,23 @@ function PlayingScreen({
       {/* Explanation */}
       {feedback !== null && exercise.explanation && (
         <div
-          className={`rounded-2xl px-4 py-3 text-base font-bold
+          className={`rounded-2xl px-4 py-3 text-base font-bold mb-4
             ${feedback === "correct"
               ? "bg-forest-light text-forest-dark"
               : "bg-amber-50 border border-amber-200 text-amber-800"}`}
         >
           💡 {exercise.explanation}
         </div>
+      )}
+
+      {/* Weiter button — only shown after answering */}
+      {waitingNext && (
+        <button
+          className="btn-primary w-full text-lg"
+          onClick={onNext}
+        >
+          Weiter →
+        </button>
       )}
     </div>
   );
@@ -408,7 +487,7 @@ function DoneScreen({
   const score = Math.round((correct / answers.length) * 100);
   const xpEarned = exercises.reduce(
     (sum, e, i) => sum + (answers[i] ? e.xpReward : 0),
-    0
+    0,
   );
   const stars = score === 100 ? 3 : score >= 60 ? 2 : score >= 40 ? 1 : 0;
   const starsLabel =
@@ -465,6 +544,7 @@ export function UebungenClient() {
   const [currentIdx, setCurrentIdx] = useState(0);
   const [selected, setSelected] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<"correct" | "wrong" | null>(null);
+  const [waitingNext, setWaitingNext] = useState(false);
   const [answers, setAnswers] = useState<boolean[]>([]);
   const [aiLoading, setAiLoading] = useState<string | null>(null);
 
@@ -486,7 +566,6 @@ export function UebungenClient() {
   const startSession = (cfg: ExerciseTypeConfig) => {
     const pool = getPool(cfg);
     const session = shuffleArray(pool).slice(0, EXERCISES_PER_SESSION).map((e) => {
-      // Shuffle options for sentence-building so the correct answer isn't always first
       if (e.category === "sentence-building" && e.options) {
         return { ...e, options: shuffleArray(e.options) };
       }
@@ -498,80 +577,47 @@ export function UebungenClient() {
     setCurrentIdx(0);
     setSelected(null);
     setFeedback(null);
+    setWaitingNext(false);
     setAnswers([]);
     setPhase("playing");
   };
 
-  const handleAiVerben = async () => {
-    setAiLoading("verben");
+  // Shared AI handler for all exercise types
+  const handleAi = async (cfg: ExerciseTypeConfig) => {
+    setAiLoading(cfg.category);
     try {
-      const res = await fetch("/api/ai/verben", {
+      const res = await fetch(cfg.aiRoute, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ grade: klasse, count: EXERCISES_PER_SESSION }),
+        body: JSON.stringify({ grade: klasse, count: EXERCISES_PER_SESSION, userId: user?.id }),
       });
-      const aiItems = await res.json() as { sentence: string; verb: string; correctAnswer: string; wrongOptions: [string, string, string] }[];
-      const cfg = EXERCISE_TYPES.find((t) => t.category === "verb-conjugation")!;
-      const exercises: GrammarExercise[] = aiItems.map((item, i) => ({
-        id: `ai-verb-${Date.now()}-${i}`,
-        category: "verb-conjugation",
-        klasse,
-        prompt: item.sentence,
-        options: shuffleArray([item.correctAnswer, ...item.wrongOptions]),
-        correctAnswer: item.correctAnswer,
-        explanation: `Das Verb "${item.verb}" wird hier so konjugiert.`,
-        xpReward: 5,
-      }));
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const aiItems = await res.json() as any[];
+      const exercises: GrammarExercise[] = aiItems.map((item, i) =>
+        aiResponseToExercise(cfg.category, klasse, i, item),
+      );
+      if (exercises.length === 0) { startSession(cfg); return; }
       setSelectedType(cfg);
       setSessionExercises(exercises);
       setCurrentIdx(0);
       setSelected(null);
       setFeedback(null);
+      setWaitingNext(false);
       setAnswers([]);
       setPhase("playing");
     } catch (err) {
-      console.error("AI Verben error:", err);
-    } finally {
-      setAiLoading(null);
-    }
-  };
-
-  const handleAiArtikel = async () => {
-    setAiLoading("artikel");
-    try {
-      const res = await fetch("/api/ai/artikel", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ grade: klasse, count: EXERCISES_PER_SESSION }),
-      });
-      const aiItems = await res.json() as { noun: string; emoji: string; correctArticle: "der" | "die" | "das"; hint: string }[];
-      const cfg = EXERCISE_TYPES.find((t) => t.category === "noun-gender")!;
-      const exercises: GrammarExercise[] = aiItems.map((item, i) => ({
-        id: `ai-artikel-${Date.now()}-${i}`,
-        category: "noun-gender",
-        klasse,
-        prompt: `${item.emoji} ${item.noun}`,
-        options: ["der", "die", "das"],
-        correctAnswer: item.correctArticle,
-        explanation: item.hint,
-        xpReward: 5,
-      }));
-      setSelectedType(cfg);
-      setSessionExercises(exercises);
-      setCurrentIdx(0);
-      setSelected(null);
-      setFeedback(null);
-      setAnswers([]);
-      setPhase("playing");
-    } catch (err) {
-      console.error("AI Artikel error:", err);
+      console.error("AI exercise error:", err);
+      startSession(cfg); // fallback to static pool
     } finally {
       setAiLoading(null);
     }
   };
 
   const handleRandom = () => {
-    const eligible = EXERCISE_TYPES.filter((t) => getPool(t).length >= EXERCISES_PER_SESSION);
+    const eligible = EXERCISE_TYPES.filter((t) => {
+      const minKlasse = CURRICULUM_MIN_KLASSE[t.category] ?? 1;
+      return klasse >= minKlasse && getPool(t).length >= EXERCISES_PER_SESSION;
+    });
     if (eligible.length === 0) return;
     const picked = eligible[Math.floor(Math.random() * eligible.length)]!;
     startSession(picked);
@@ -586,36 +632,49 @@ export function UebungenClient() {
     setSelected(option);
     setFeedback(isCorrect ? "correct" : "wrong");
     isCorrect ? playCorrect() : playWrong();
-    const newAnswers = [...answers, isCorrect];
+    setAnswers((prev) => [...prev, isCorrect]);
+    setWaitingNext(true);
+  };
 
-    setTimeout(() => {
-      if (currentIdx + 1 < sessionExercises.length) {
-        setCurrentIdx((i) => i + 1);
-        setSelected(null);
-        setFeedback(null);
-        setAnswers(newAnswers);
-      } else {
-        const correctCount = newAnswers.filter(Boolean).length;
-        const score = Math.round((correctCount / newAnswers.length) * 100);
-        const stars: 0 | 1 | 2 | 3 =
-          score === 100 ? 3 : score >= 60 ? 2 : score >= 40 ? 1 : 0;
-        void supabase
-          .from("progress")
-          .insert({
-            user_id: user?.id,
-            lesson_id: selectedType.lessonId,
-            score,
-            stars,
-            completed_at: new Date().toISOString(),
-          })
-          .then(({ error }) => {
-            if (error) console.error("Progress save error:", error);
-          });
-        playComplete();
-        setAnswers(newAnswers);
-        setPhase("done");
-      }
-    }, 1500);
+  const handleNextExercise = () => {
+    const current = sessionExercises[currentIdx];
+    if (!current) return;
+
+    // Speak the correct answer before advancing
+    const ttsText = feedback === "correct"
+      ? `Richtig: ${current.correctAnswer}`
+      : `Die richtige Antwort ist: ${current.correctAnswer}`;
+    void speakText(ttsText, false);
+
+    const newAnswers = [...answers]; // already updated in handleSelect
+    const isLastExercise = currentIdx + 1 >= sessionExercises.length;
+
+    if (isLastExercise) {
+      const correctCount = newAnswers.filter(Boolean).length;
+      const score = Math.round((correctCount / newAnswers.length) * 100);
+      const stars: 0 | 1 | 2 | 3 =
+        score === 100 ? 3 : score >= 60 ? 2 : score >= 40 ? 1 : 0;
+      void supabase
+        .from("progress")
+        .insert({
+          user_id: user!.id,
+          lesson_id: selectedType.lessonId,
+          score,
+          stars,
+          completed_at: new Date().toISOString(),
+        })
+        .then(({ error }) => {
+          if (error) console.error("Progress save error:", error);
+        });
+      playComplete();
+      setWaitingNext(false);
+      setPhase("done");
+    } else {
+      setCurrentIdx((i) => i + 1);
+      setSelected(null);
+      setFeedback(null);
+      setWaitingNext(false);
+    }
   };
 
   if (phase === "hub") {
@@ -624,8 +683,7 @@ export function UebungenClient() {
         klasse={klasse}
         onSelect={startSession}
         onRandom={handleRandom}
-        onAiVerben={() => { void handleAiVerben(); }}
-        onAiArtikel={() => { void handleAiArtikel(); }}
+        onAi={(cfg) => { void handleAi(cfg); }}
         aiLoading={aiLoading}
       />
     );
@@ -654,7 +712,9 @@ export function UebungenClient() {
       total={sessionExercises.length}
       selected={selected}
       feedback={feedback}
+      waitingNext={waitingNext}
       onSelect={handleSelect}
+      onNext={handleNextExercise}
     />
   );
 }
