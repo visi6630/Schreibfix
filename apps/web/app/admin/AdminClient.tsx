@@ -11,8 +11,11 @@ import { supabase } from "@/lib/supabase";
 type Profile = {
   id: string;
   email: string | null;
+  vorname: string | null;
+  nachname: string | null;
   klasse: number | null;
   is_admin: boolean;
+  xp: number;
   registered_at: string;
   last_seen: string | null;
 };
@@ -201,12 +204,14 @@ export function AdminClient() {
     if (checkStatus !== "ok") return;
 
     const fetchAll = async () => {
-      const [profilesRes, progressRes, apiLogsRes, errorLogsRes] =
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token ?? "";
+
+      const [usersRes, progressRes, apiLogsRes, errorLogsRes] =
         await Promise.all([
-          supabase
-            .from("profiles")
-            .select("*")
-            .order("registered_at", { ascending: false }),
+          fetch("/api/admin/users", {
+            headers: { Authorization: `Bearer ${token}` },
+          }).then((r) => r.json() as Promise<{ users?: Profile[] }>),
           supabase
             .from("progress")
             .select("*")
@@ -223,7 +228,10 @@ export function AdminClient() {
             .limit(30),
         ]);
 
-      setProfiles((profilesRes.data as Profile[]) ?? []);
+      const sortedUsers = (usersRes.users ?? []).sort(
+        (a, b) => new Date(b.registered_at).getTime() - new Date(a.registered_at).getTime(),
+      );
+      setProfiles(sortedUsers);
       setAllProgress((progressRes.data as Progress[]) ?? []);
       setApiLogs((apiLogsRes.data as ApiLog[]) ?? []);
       setErrorLogs((errorLogsRes.data as ErrorLog[]) ?? []);
@@ -256,15 +264,6 @@ export function AdminClient() {
 
   // ── Section A: Users ────────────────────────────────────────────────────────
   const regularUsers = profiles.filter((p) => !p.is_admin);
-
-  const xpByUser: Record<string, number> = {};
-  for (const p of allProgress) {
-    const base =
-      p.lesson_id.startsWith("grammatik-") || p.lesson_id === "lesen-ai"
-        ? 25
-        : 30;
-    xpByUser[p.user_id] = (xpByUser[p.user_id] ?? 0) + Math.round((p.score / 100) * base);
-  }
 
   // ── Section B: Usage stats ──────────────────────────────────────────────────
   const totalXp = computeXpForProgress(allProgress);
@@ -345,6 +344,7 @@ export function AdminClient() {
               <thead className="bg-gray-50 text-gray-400 text-xs uppercase tracking-wide">
                 <tr>
                   <th className="text-left px-5 py-3">E-Mail</th>
+                  <th className="text-left px-4 py-3">Name</th>
                   <th className="text-left px-4 py-3">Klasse</th>
                   <th className="text-right px-4 py-3">XP</th>
                   <th className="text-left px-4 py-3">Registriert</th>
@@ -360,10 +360,15 @@ export function AdminClient() {
                       )}
                     </td>
                     <td className="px-4 py-3 text-gray-500">
+                      {profile.vorname || profile.nachname
+                        ? `${profile.vorname ?? ""} ${profile.nachname ?? ""}`.trim()
+                        : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-4 py-3 text-gray-500">
                       {profile.klasse ? `Kl. ${profile.klasse}` : "—"}
                     </td>
                     <td className="px-4 py-3 text-right font-semibold text-orange-600">
-                      {xpByUser[profile.id] ?? 0}
+                      {profile.xp ?? 0}
                     </td>
                     <td className="px-4 py-3 text-gray-400">
                       {fmt(profile.registered_at)}

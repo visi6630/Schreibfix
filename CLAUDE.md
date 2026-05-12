@@ -24,6 +24,22 @@ German spelling learning app for children.
     `wrong_count` (int), `last_seen` (timestamptz), `next_review` (timestamptz)
     - Unique constraint on `(user_id, word)` for upsert
     - Migration: `CREATE TABLE weak_words (id UUID DEFAULT gen_random_uuid() PRIMARY KEY, user_id UUID REFERENCES auth.users(id), word TEXT NOT NULL, sentence_id TEXT NOT NULL, wrong_count INT DEFAULT 1, last_seen TIMESTAMPTZ DEFAULT now(), next_review TIMESTAMPTZ DEFAULT now(), UNIQUE(user_id, word));`
+- **Auto-create profile on registration** — run this SQL once in Supabase SQL editor to set up the trigger:
+  ```sql
+  CREATE OR REPLACE FUNCTION create_profile_for_user()
+  RETURNS TRIGGER AS $$
+  BEGIN
+    INSERT INTO profiles (id, created_at)
+    VALUES (NEW.id, NOW())
+    ON CONFLICT (id) DO NOTHING;
+    RETURN NEW;
+  END;
+  $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+  CREATE OR REPLACE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW EXECUTE FUNCTION create_profile_for_user();
+  ```
 
 ## AI Integration
 
