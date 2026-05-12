@@ -140,10 +140,23 @@ cd packages/core && npm run build
 - `vercel.json` at project root — builds only `apps/web` via `turbo run build --filter=@schreibfix/web`
 - Turbo's dependency graph ensures `packages/core` is built first (before `apps/web`)
 - **Vercel dashboard**: Root Directory must be set to `/` (project root, not `apps/web`)
-- Output directory: `apps/web/.next`
+- Output directory: `.next` (relative to `apps/web`; `vercel.json` uses `".next"` not `"apps/web/.next"`)
 - **Required Vercel environment variables**:
   - `ANTHROPIC_API_KEY` — Claude AI features (Diktat, Übungen, Lesen, Elternportal)
   - `ELEVENLABS_API_KEY` — ElevenLabs TTS (Charlotte voice, ID: `XB0fDUnXU5powFXDhCwa`); falls back to Web Speech API if missing
+
+## Deploy Check Script
+
+```bash
+node scripts/check-deploy.mjs
+```
+
+Reads the latest Vercel deployment via the Vercel API. If the deployment failed it prints
+the last 100 lines of the build log. Requires `VERCEL_TOKEN` and `VERCEL_PROJECT_ID` set in
+`apps/web/.env.local` (see placeholders already added there).
+
+**When a deployment fails**: paste the Vercel error log here with the message
+"Fix this Vercel deployment error" — Claude Code reads CLAUDE.md and will fix it automatically.
 
 ## Git
 

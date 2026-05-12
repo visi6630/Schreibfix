@@ -11,18 +11,21 @@ const AuthContext = createContext<AuthCtx>({
   isAdmin: false,
 });
 
-async function loadAdminFlag(userId: string, email?: string | null): Promise<boolean> {
-  // Upsert email + last_seen without touching klasse/is_admin
+function updateLastSeen(userId: string, email?: string | null): void {
   void supabase.from("profiles").upsert(
     { id: userId, email: email ?? null, last_seen: new Date().toISOString() },
-    { onConflict: "id" },
+    { onConflict: "id", ignoreDuplicates: false },
   );
-  const { data } = await supabase
+}
+
+async function loadAdminFlag(userId: string): Promise<boolean> {
+  const { data, error } = await supabase
     .from("profiles")
     .select("is_admin")
     .eq("id", userId)
     .maybeSingle();
-  return (data as { is_admin: boolean } | null)?.is_admin ?? false;
+  if (error) console.warn("loadAdminFlag error:", error.message);
+  return (data as { is_admin: boolean } | null)?.is_admin === true;
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -36,7 +39,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const u = data.session?.user ?? null;
       setUser(u);
       if (u) {
-        const admin = await loadAdminFlag(u.id, u.email);
+        updateLastSeen(u.id, u.email);
+        const admin = await loadAdminFlag(u.id);
         setIsAdmin(admin);
       }
       setLoading(false);
@@ -50,8 +54,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!u) {
         setIsAdmin(false);
       } else {
-        // Fire-and-forget: update profile and refresh admin flag
-        void loadAdminFlag(u.id, u.email).then(setIsAdmin);
+        updateLastSeen(u.id, u.email);
+        void loadAdminFlag(u.id).then(setIsAdmin);
       }
     });
 
