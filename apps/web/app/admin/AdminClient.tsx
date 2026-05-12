@@ -45,19 +45,6 @@ type ErrorLog = {
   created_at: string;
 };
 
-type AdminCheckResponse = {
-  isAdmin: boolean;
-  userId?: string;
-  email?: string;
-  profile?: {
-    id: string;
-    email: string | null;
-    klasse: number | null;
-    is_admin: boolean;
-  } | null;
-  error?: string;
-};
-
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function computeXpForProgress(rows: Progress[]): number {
@@ -162,7 +149,6 @@ export function AdminClient() {
 
   // Admin check state — independent from AuthProvider.isAdmin to avoid race conditions
   const [checkStatus, setCheckStatus] = useState<"loading" | "ok" | "denied">("loading");
-  const [apiResponse, setApiResponse] = useState<AdminCheckResponse | null>(null);
 
   const [dataLoading, setDataLoading] = useState(true);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -175,45 +161,33 @@ export function AdminClient() {
     if (authLoading) return;
 
     if (!user) {
-      console.log("[admin] No user → /auth");
       router.replace("/auth");
       return;
     }
 
     const verify = async () => {
-      console.log("[admin] Verifying admin for user:", user.email, "id:", user.id);
-
       const { data: sessionData } = await supabase.auth.getSession();
       const token = sessionData.session?.access_token;
 
       if (!token) {
-        console.log("[admin] No session token found");
-        setApiResponse({ isAdmin: false, error: "No session token" });
         setCheckStatus("denied");
         router.replace("/");
         return;
       }
 
-      console.log("[admin] Calling /api/admin/check …");
       try {
         const res = await fetch("/api/admin/check", {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const data = (await res.json()) as AdminCheckResponse;
-        console.log("[admin] /api/admin/check response:", data);
-        setApiResponse(data);
+        const data = (await res.json()) as { isAdmin: boolean };
 
         if (data.isAdmin === true) {
-          console.log("[admin] Admin confirmed ✓");
           setCheckStatus("ok");
         } else {
-          console.log("[admin] Not admin → /");
           setCheckStatus("denied");
           router.replace("/");
         }
-      } catch (err) {
-        console.error("[admin] Fetch error:", err);
-        setApiResponse({ isAdmin: false, error: String(err) });
+      } catch {
         setCheckStatus("denied");
         router.replace("/");
       }
@@ -352,23 +326,6 @@ export function AdminClient() {
           ← Zur App
         </Link>
       </div>
-
-      {/* ── Debug Panel (remove after confirming fix) ─────────────────────── */}
-      <details className="mb-6 bg-gray-50 border border-gray-200 rounded-xl text-xs">
-        <summary className="px-4 py-2 cursor-pointer font-mono text-gray-400 select-none">
-          🔍 Debug-Info (zum Entfernen)
-        </summary>
-        <div className="px-4 pb-4 pt-2 grid grid-cols-1 gap-1 font-mono">
-          <div><span className="text-gray-400">E-Mail: </span><span className="text-gray-700">{user?.email ?? "—"}</span></div>
-          <div><span className="text-gray-400">User-ID: </span><span className="text-gray-700">{user?.id ?? "—"}</span></div>
-          <div><span className="text-gray-400">is_admin (DB): </span>
-            <span className={apiResponse?.profile?.is_admin ? "text-green-600 font-bold" : "text-red-500 font-bold"}>
-              {apiResponse?.profile?.is_admin === true ? "true" : apiResponse?.profile?.is_admin === false ? "false" : "—"}
-            </span>
-          </div>
-          <div><span className="text-gray-400">API-Antwort: </span><span className="text-gray-600 break-all">{JSON.stringify(apiResponse)}</span></div>
-        </div>
-      </details>
 
       {/* ── Section A: Users Overview ─────────────────────────────────────── */}
       <section className="mb-10">

@@ -8,7 +8,6 @@ const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
 export async function GET(req: NextRequest) {
   const authHeader = req.headers.get("Authorization");
   if (!authHeader?.startsWith("Bearer ")) {
-    console.log("[admin/check] No Authorization header");
     return NextResponse.json({ isAdmin: false, error: "No token" }, { status: 401 });
   }
   const token = authHeader.slice(7);
@@ -21,17 +20,14 @@ export async function GET(req: NextRequest) {
   } = await verifier.auth.getUser(token);
 
   if (jwtError || !user) {
-    console.log("[admin/check] JWT error:", jwtError?.message ?? "no user");
     return NextResponse.json(
       { isAdmin: false, error: jwtError?.message ?? "Invalid token" },
       { status: 401 },
     );
   }
 
-  console.log("[admin/check] User verified:", user.email, "id:", user.id);
-
   // Query profiles — prefer service role key (bypasses RLS entirely).
-  // Fall back to user-context query if service role key not configured;
+  // Falls back to user-context query if service role key not configured;
   // that path requires an RLS policy: USING (auth.uid() = id)
   const useServiceRole = SERVICE_ROLE_KEY.length > 10;
   const queryClient = useServiceRole
@@ -40,8 +36,6 @@ export async function GET(req: NextRequest) {
         global: { headers: { Authorization: `Bearer ${token}` } },
       });
 
-  console.log("[admin/check] Querying profiles via", useServiceRole ? "service role" : "user-context (RLS)");
-
   const { data: profile, error: profileError } = await queryClient
     .from("profiles")
     .select("id, email, klasse, is_admin")
@@ -49,21 +43,13 @@ export async function GET(req: NextRequest) {
     .maybeSingle();
 
   if (profileError) {
-    console.error("[admin/check] Profile error:", profileError.message);
-    return NextResponse.json({
-      isAdmin: false,
-      error: profileError.message,
-      serviceRoleConfigured: useServiceRole,
-    });
+    return NextResponse.json({ isAdmin: false, error: profileError.message });
   }
-
-  console.log("[admin/check] Profile:", profile, "serviceRoleConfigured:", useServiceRole);
 
   return NextResponse.json({
     isAdmin: profile?.is_admin === true,
     userId: user.id,
     email: user.email,
     profile: profile ?? null,
-    serviceRoleConfigured: useServiceRole,
   });
 }
