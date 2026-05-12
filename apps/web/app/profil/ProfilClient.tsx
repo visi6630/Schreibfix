@@ -67,22 +67,34 @@ export function ProfilClient() {
     setSaving(true);
     setSaveMsg(null);
 
-    const { error } = await supabase
-      .from("profiles")
-      .upsert(
-        {
-          id: user.id,
-          vorname: profile.vorname.trim() || null,
-          nachname: profile.nachname.trim() || null,
-          klasse: profile.klasse,
-          avatar: profile.avatar,
-        },
-        { onConflict: "id" },
-      );
+    const { data: sessionData } = await supabase.auth.getSession();
+    const token = sessionData.session?.access_token;
+    if (!token) {
+      setSaving(false);
+      setSaveMsg({ type: "err", text: "Nicht angemeldet. Bitte neu einloggen." });
+      return;
+    }
 
+    // Use server-side route with service role key to avoid RLS issues
+    // (upsert fails with client-side call if no INSERT policy exists for profiles)
+    const res = await fetch("/api/profile/save", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({
+        vorname: profile.vorname.trim() || null,
+        nachname: profile.nachname.trim() || null,
+        klasse: profile.klasse,
+        avatar: profile.avatar,
+      }),
+    });
+
+    const result = await res.json() as { error?: string };
     setSaving(false);
-    if (error) {
-      setSaveMsg({ type: "err", text: "Fehler beim Speichern: " + error.message });
+    if (!res.ok) {
+      setSaveMsg({ type: "err", text: "Fehler beim Speichern: " + (result.error ?? "Unbekannter Fehler") });
     } else {
       setSaveMsg({ type: "ok", text: "Profil gespeichert! ✓" });
       setTimeout(() => setSaveMsg(null), 3000);

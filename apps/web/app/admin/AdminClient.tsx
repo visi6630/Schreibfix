@@ -184,6 +184,12 @@ function SubscriptionManager({
   const [saving, setSaving] = useState<string | null>(null);
   const [editTier, setEditTier] = useState<Record<string, string>>({});
   const [editExpiry, setEditExpiry] = useState<Record<string, string>>({});
+  const [toast, setToast] = useState<{ type: "ok" | "err"; text: string } | null>(null);
+
+  const showToast = (type: "ok" | "err", text: string) => {
+    setToast({ type, text });
+    setTimeout(() => setToast(null), 3000);
+  };
 
   const loadSubs = useCallback(async () => {
     const res = await fetch("/api/admin/subscriptions", {
@@ -216,23 +222,34 @@ function SubscriptionManager({
     setSaving(userId);
     const tier = getEffectiveTier(userId);
     const expiry = getEffectiveExpiry(userId);
-    await fetch("/api/admin/subscriptions", {
-      method: "PUT",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        userId,
-        tier,
-        expiresAt: expiry || null,
-      }),
-    });
-    await loadSubs();
-    setSaving(null);
-    // Clear local edits
-    setEditTier((prev) => { const n = { ...prev }; delete n[userId]; return n; });
-    setEditExpiry((prev) => { const n = { ...prev }; delete n[userId]; return n; });
+    try {
+      const res = await fetch("/api/admin/subscriptions", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          userId,
+          tier,
+          expiresAt: expiry || null,
+        }),
+      });
+      const data = await res.json() as { error?: string };
+      if (!res.ok) {
+        showToast("err", "Fehler: " + (data.error ?? "Unbekannter Fehler"));
+      } else {
+        await loadSubs();
+        setEditTier((prev) => { const n = { ...prev }; delete n[userId]; return n; });
+        setEditExpiry((prev) => { const n = { ...prev }; delete n[userId]; return n; });
+        showToast("ok", "Abonnement gespeichert ✓");
+      }
+    } catch (err) {
+      showToast("err", "Netzwerkfehler beim Speichern");
+      console.error(err);
+    } finally {
+      setSaving(null);
+    }
   };
 
   if (loading) {
@@ -241,6 +258,15 @@ function SubscriptionManager({
 
   return (
     <div className="overflow-x-auto">
+      {toast && (
+        <div className={`mx-5 mt-4 rounded-xl px-4 py-2.5 text-sm font-bold
+          ${toast.type === "ok"
+            ? "bg-green-50 text-green-700 border border-green-200"
+            : "bg-red-50 text-red-700 border border-red-200"}`}
+        >
+          {toast.text}
+        </div>
+      )}
       <table className="w-full text-sm">
         <thead className="bg-gray-50 text-gray-400 text-xs uppercase tracking-wide">
           <tr>
