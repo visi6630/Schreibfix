@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { BottomNav } from "@/components/BottomNav";
 import { AuthProvider } from "@/components/AuthProvider";
+import { SubscriptionProvider } from "@/components/SubscriptionProvider";
 import { Header } from "@/components/Header";
 
 export const metadata: Metadata = {
@@ -23,9 +24,11 @@ export default function RootLayout({
     <html lang="de">
       <body className="flex min-h-screen flex-col">
         <AuthProvider>
-          <Header />
-          <main className="flex-1 pb-24">{children}</main>
-          <BottomNav />
+          <SubscriptionProvider>
+            <Header />
+            <main className="flex-1 pb-24">{children}</main>
+            <BottomNav />
+          </SubscriptionProvider>
         </AuthProvider>
       </body>
     </html>

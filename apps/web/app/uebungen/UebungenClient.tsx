@@ -16,6 +16,7 @@ import {
 } from "@schreibfix/core";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
+import { usePaywall } from "@/components/SubscriptionProvider";
 import { playCorrect, playWrong, playComplete } from "@/lib/sounds";
 import { speakText } from "@/lib/tts";
 
@@ -537,6 +538,7 @@ function DoneScreen({
 
 export function UebungenClient() {
   const { user } = useAuth();
+  const { checkFeature } = usePaywall();
   const [klasse, setKlasse] = useState<Klasse>(4);
   const [phase, setPhase] = useState<SessionPhase>("hub");
   const [selectedType, setSelectedType] = useState<ExerciseTypeConfig>(EXERCISE_TYPES[0]!);
@@ -584,6 +586,7 @@ export function UebungenClient() {
 
   // Shared AI handler for all exercise types
   const handleAi = async (cfg: ExerciseTypeConfig) => {
+    if (!checkFeature("aiUebungen")) return;
     setAiLoading(cfg.category);
     try {
       const res = await fetch(cfg.aiRoute, {

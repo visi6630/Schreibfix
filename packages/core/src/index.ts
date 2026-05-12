@@ -20,3 +20,17 @@ export { artikelPool, getRandomArtikelExercises } from "./content/artikel-pool.j
 export { readingTextsPool, getRandomReadingTexts } from "./content/reading-texts-pool.js";
 export type { ReadingTextStatic } from "./content/reading-texts-pool.js";
 export { CURRICULUM_MIN_KLASSE, filterByGrade } from "./content/curriculum.js";
+export {
+  canUseFeature,
+  getTrialDaysRemaining,
+  isTrialing,
+  hasActiveSubscription,
+  FEATURES,
+} from "./lib/features.js";
+export type {
+  SubscriptionTier,
+  SubscriptionStatus,
+  Subscription,
+  FeatureFlags,
+  FeatureKey,
+} from "./lib/features.js";

@@ -392,6 +392,9 @@ export function HomeClient() {
           <Link href="/eltern" className="text-xs text-gray-300 hover:text-gray-400 underline">
             Elternportal
           </Link>
+          <Link href="/subscription" className="text-xs text-gray-300 hover:text-gray-400 underline">
+            Pläne & Preise
+          </Link>
           {isAdmin && (
             <Link href="/admin" className="text-xs text-gray-300 hover:text-gray-400 underline">
               Admin

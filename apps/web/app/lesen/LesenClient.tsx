@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback } from "react";
 import type { ReadingTextAI } from "@/lib/ai-content";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
+import { useSubscription } from "@/components/SubscriptionProvider";
 import type { Klasse } from "@schreibfix/core";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -117,6 +118,7 @@ function useVoiceReading(text: string) {
 
 export function LesenClient() {
   const { user } = useAuth();
+  const { features, loading: subLoading, showPaywall } = useSubscription();
   const [phase, setPhase] = useState<Phase>("loading");
   const [readingData, setReadingData] = useState<ReadingTextAI | null>(null);
   const [questions, setQuestions] = useState<QuestionState[]>([]);
@@ -126,7 +128,12 @@ export function LesenClient() {
   const voice = useVoiceReading(readingData?.text ?? "");
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || subLoading) return;
+    if (!features.lesen) {
+      showPaywall("lesen");
+      setPhase("reading"); // stop loading spinner; paywall modal handles the UX
+      return;
+    }
 
     void supabase
       .from("profiles")
@@ -138,7 +145,7 @@ export function LesenClient() {
         setKlasse(k);
         void loadText(k);
       });
-  }, [user]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [user, subLoading, features.lesen]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const loadText = async (k: Klasse) => {
     setPhase("loading");

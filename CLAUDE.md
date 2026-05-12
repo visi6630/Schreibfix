@@ -153,6 +153,57 @@ npm install   # always run from project root
 cd packages/core && npm run build
 ```
 
+## Subscription System
+
+### Tiers
+`free` → `plus` (€2,99/Mo) → `pro` (€3,99/Mo) → `school` (€49,99/Mo)
+
+### Feature flags
+`packages/core/src/lib/features.ts` — `canUseFeature(tier, feature)`, `FEATURES` map
+
+### Database
+Run once in Supabase SQL editor:
+```sql
+CREATE TABLE subscriptions (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  family_id UUID REFERENCES auth.users(id) UNIQUE,
+  tier TEXT NOT NULL DEFAULT 'free',
+  status TEXT NOT NULL DEFAULT 'active',
+  stripe_customer_id TEXT,
+  stripe_subscription_id TEXT,
+  paypal_subscription_id TEXT,
+  trial_ends_at TIMESTAMPTZ,
+  current_period_ends_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now(),
+  updated_at TIMESTAMPTZ DEFAULT now()
+);
+ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "Users can read own subscription" ON subscriptions FOR SELECT USING (family_id = auth.uid());
+```
+
+### API routes
+- `GET /api/subscription/status` — returns `{ tier, status, trialDaysRemaining, features, subscription }`
+- `POST /api/subscription/start-trial` — starts 7-day Pro trial (once per user)
+- `POST /api/stripe/create-checkout` — body `{ priceId, tier }` → returns `{ url }` (Stripe checkout)
+- `POST /api/stripe/portal` — returns Stripe customer portal URL
+- `POST /api/stripe/webhook` — Stripe webhook handler (set `STRIPE_WEBHOOK_SECRET`)
+- `POST /api/stripe/setup-products` — one-time: creates Stripe products/prices
+- `POST /api/paypal/create-order` — body `{ planKey }` → returns `{ orderId, approvalUrl }`
+- `POST /api/paypal/capture-order` — body `{ orderId }` → captures and activates subscription
+
+### Pages
+- `/subscription` — pricing page with Stripe + PayPal checkout
+- `/subscription/success` — redirect after successful checkout
+- `/subscription/cancel` — redirect after cancelled checkout
+
+### Components
+- `SubscriptionProvider` wraps the whole app (in `layout.tsx`); provides `useSubscription()` and `usePaywall()`
+- `PaywallModal` — shown when `showPaywall(feature)` is called; has trial start CTA + plan cards
+
+### Teacher Dashboard
+- `/lehrer` — only accessible with `school` tier; shows student list with XP, weekly activity, CSV export
+- `GET /api/lehrer/students` — requires school subscription; returns all student profiles with exercise counts
+
 ## Vercel Deployment
 
 - `vercel.json` at project root — builds only `apps/web` via `turbo run build --filter=@schreibfix/web`
@@ -163,6 +214,16 @@ cd packages/core && npm run build
   - `ANTHROPIC_API_KEY` — Claude AI features (Diktat, Übungen, Lesen, Elternportal)
   - `ELEVENLABS_API_KEY` — ElevenLabs TTS (Rachel voice, ID: `21m00Tcm4TlvDq8ikWAM`, free-tier compatible); falls back to Web Speech API if missing
   - `SUPABASE_SERVICE_ROLE_KEY` — service role key (Project Settings → API → service_role key); used server-side by `/api/admin/check` to bypass RLS when querying `profiles`. **Must be set in Vercel and in `.env.local`** or `/admin` will always redirect to `/` even when `is_admin = true`.
+  - `STRIPE_SECRET_KEY` — Stripe secret key (Stripe dashboard → Developers → API keys)
+  - `STRIPE_WEBHOOK_SECRET` — from `stripe listen` or Stripe dashboard webhook endpoint
+  - `NEXT_PUBLIC_STRIPE_PLUS_MONTHLY` — Stripe Price ID for Plus monthly
+  - `NEXT_PUBLIC_STRIPE_PLUS_YEARLY` — Stripe Price ID for Plus yearly
+  - `NEXT_PUBLIC_STRIPE_PRO_MONTHLY` — Stripe Price ID for Pro monthly
+  - `NEXT_PUBLIC_STRIPE_PRO_YEARLY` — Stripe Price ID for Pro yearly
+  - `PAYPAL_CLIENT_ID` — PayPal REST API client ID (sandbox or live)
+  - `PAYPAL_CLIENT_SECRET` — PayPal REST API client secret
+  - `PAYPAL_ENV` — `"live"` for production, omit for sandbox
+  - `NEXT_PUBLIC_BASE_URL` — production URL e.g. `https://schreibfix.de` (used by PayPal redirect URLs)
 
 ## Deploy Check Script
 

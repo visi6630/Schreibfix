@@ -5,6 +5,7 @@ import type { DiktatLesson, DiktatSentence, Klasse } from "@schreibfix/core";
 import { diktatLessons } from "@schreibfix/core";
 import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
+import { usePaywall } from "@/components/SubscriptionProvider";
 import { DiktatClient } from "./DiktatClient";
 import type { DiktatSentenceAI } from "@/lib/ai-content";
 
@@ -63,6 +64,7 @@ function buildSchwaechenLesson(weakWords: WeakWordRow[]): DiktatLesson | null {
 
 export function LessonPickerClient() {
   const { user } = useAuth();
+  const { checkFeature } = usePaywall();
   const [selectedLesson, setSelectedLesson] = useState<DiktatLesson | null>(null);
   const [completedMap, setCompletedMap] = useState<CompletedMap>({});
   const [filterKlasse, setFilterKlasse] = useState<Klasse | null>(null);
@@ -118,6 +120,7 @@ export function LessonPickerClient() {
   }, [user]);
 
   const handleAiDiktat = async () => {
+    if (!checkFeature("aiDiktat")) return;
     setAiLoading(true);
     try {
       const res = await fetch("/api/ai/diktat", {
