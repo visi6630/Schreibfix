@@ -145,7 +145,7 @@ cd packages/core && npm run build
 - **Required Vercel environment variables**:
   - `ANTHROPIC_API_KEY` — Claude AI features (Diktat, Übungen, Lesen, Elternportal)
   - `ELEVENLABS_API_KEY` — ElevenLabs TTS (Charlotte voice, ID: `XB0fDUnXU5powFXDhCwa`); falls back to Web Speech API if missing
-  - `SUPABASE_SERVICE_ROLE_KEY` — service role key (Project Settings → API); used server-side to bypass RLS for admin checks (`/api/check-admin`)
+  - `SUPABASE_SERVICE_ROLE_KEY` — service role key (Project Settings → API → service_role key); used server-side to bypass RLS for admin checks (`/api/check-admin`, `/api/admin/check`). **Must be set in Vercel** or admin page will always redirect to /.
 
 ## Deploy Check Script
 

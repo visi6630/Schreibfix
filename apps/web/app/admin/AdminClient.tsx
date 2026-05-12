@@ -45,6 +45,19 @@ type ErrorLog = {
   created_at: string;
 };
 
+type AdminCheckResponse = {
+  isAdmin: boolean;
+  userId?: string;
+  email?: string;
+  profile?: {
+    id: string;
+    email: string | null;
+    klasse: number | null;
+    is_admin: boolean;
+  } | null;
+  error?: string;
+};
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 function computeXpForProgress(rows: Progress[]): number {
@@ -144,8 +157,12 @@ function SectionTitle({ children }: { children: React.ReactNode }) {
 // ─── Main component ───────────────────────────────────────────────────────────
 
 export function AdminClient() {
-  const { user, isAdmin, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const router = useRouter();
+
+  // Admin check state — independent from AuthProvider.isAdmin to avoid race conditions
+  const [checkStatus, setCheckStatus] = useState<"loading" | "ok" | "denied">("loading");
+  const [apiResponse, setApiResponse] = useState<AdminCheckResponse | null>(null);
 
   const [dataLoading, setDataLoading] = useState(true);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -153,16 +170,61 @@ export function AdminClient() {
   const [apiLogs, setApiLogs] = useState<ApiLog[]>([]);
   const [errorLogs, setErrorLogs] = useState<ErrorLog[]>([]);
 
+  // ── Step 1: Verify admin via /api/admin/check ──────────────────────────────
   useEffect(() => {
-    if (loading) return;
+    if (authLoading) return;
+
     if (!user) {
+      console.log("[admin] No user → /auth");
       router.replace("/auth");
       return;
     }
-    if (!isAdmin) {
-      router.replace("/");
-      return;
-    }
+
+    const verify = async () => {
+      console.log("[admin] Verifying admin for user:", user.email, "id:", user.id);
+
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
+
+      if (!token) {
+        console.log("[admin] No session token found");
+        setApiResponse({ isAdmin: false, error: "No session token" });
+        setCheckStatus("denied");
+        router.replace("/");
+        return;
+      }
+
+      console.log("[admin] Calling /api/admin/check …");
+      try {
+        const res = await fetch("/api/admin/check", {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const data = (await res.json()) as AdminCheckResponse;
+        console.log("[admin] /api/admin/check response:", data);
+        setApiResponse(data);
+
+        if (data.isAdmin === true) {
+          console.log("[admin] Admin confirmed ✓");
+          setCheckStatus("ok");
+        } else {
+          console.log("[admin] Not admin → /");
+          setCheckStatus("denied");
+          router.replace("/");
+        }
+      } catch (err) {
+        console.error("[admin] Fetch error:", err);
+        setApiResponse({ isAdmin: false, error: String(err) });
+        setCheckStatus("denied");
+        router.replace("/");
+      }
+    };
+
+    void verify();
+  }, [user, authLoading, router]);
+
+  // ── Step 2: Load dashboard data once admin is confirmed ────────────────────
+  useEffect(() => {
+    if (checkStatus !== "ok") return;
 
     const fetchAll = async () => {
       const [profilesRes, progressRes, apiLogsRes, errorLogsRes] =
@@ -195,15 +257,19 @@ export function AdminClient() {
     };
 
     void fetchAll();
-  }, [user, isAdmin, loading, router]);
+  }, [checkStatus]);
 
-  // While auth is resolving or redirecting, show nothing
-  if (loading || !user || !isAdmin) {
+  // ── Loading / access-denied states ────────────────────────────────────────
+  if (checkStatus === "loading") {
     return (
       <div className="flex items-center justify-center py-32">
-        <p className="text-gray-300 text-sm">Wird geprüft…</p>
+        <p className="text-gray-300 text-sm">Admin-Zugang wird geprüft…</p>
       </div>
     );
+  }
+
+  if (checkStatus !== "ok") {
+    return null;
   }
 
   if (dataLoading) {
@@ -217,7 +283,6 @@ export function AdminClient() {
   // ── Section A: Users ────────────────────────────────────────────────────────
   const regularUsers = profiles.filter((p) => !p.is_admin);
 
-  // XP per user
   const xpByUser: Record<string, number> = {};
   for (const p of allProgress) {
     const base =
@@ -244,7 +309,6 @@ export function AdminClient() {
   });
   const maxDau = Math.max(...dauByDay.map((d) => d.count), 1);
 
-  // Top exercise types
   const exerciseCounts: Record<string, number> = {};
   for (const p of allProgress) {
     exerciseCounts[p.lesson_id] = (exerciseCounts[p.lesson_id] ?? 0) + 1;
@@ -281,13 +345,30 @@ export function AdminClient() {
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Admin-Konsole</h1>
           <p className="text-sm text-gray-400 mt-0.5">
-            Schreibfix · {user.email}
+            Schreibfix · {user?.email}
           </p>
         </div>
         <Link href="/" className="text-sm text-orange-500 hover:underline">
           ← Zur App
         </Link>
       </div>
+
+      {/* ── Debug Panel (remove after confirming fix) ─────────────────────── */}
+      <details className="mb-6 bg-gray-50 border border-gray-200 rounded-xl text-xs">
+        <summary className="px-4 py-2 cursor-pointer font-mono text-gray-400 select-none">
+          🔍 Debug-Info (zum Entfernen)
+        </summary>
+        <div className="px-4 pb-4 pt-2 grid grid-cols-1 gap-1 font-mono">
+          <div><span className="text-gray-400">E-Mail: </span><span className="text-gray-700">{user?.email ?? "—"}</span></div>
+          <div><span className="text-gray-400">User-ID: </span><span className="text-gray-700">{user?.id ?? "—"}</span></div>
+          <div><span className="text-gray-400">is_admin (DB): </span>
+            <span className={apiResponse?.profile?.is_admin ? "text-green-600 font-bold" : "text-red-500 font-bold"}>
+              {apiResponse?.profile?.is_admin === true ? "true" : apiResponse?.profile?.is_admin === false ? "false" : "—"}
+            </span>
+          </div>
+          <div><span className="text-gray-400">API-Antwort: </span><span className="text-gray-600 break-all">{JSON.stringify(apiResponse)}</span></div>
+        </div>
+      </details>
 
       {/* ── Section A: Users Overview ─────────────────────────────────────── */}
       <section className="mb-10">
@@ -353,7 +434,6 @@ export function AdminClient() {
           <StatCard label="Aktive Nutzer" value={regularUsers.length} />
         </div>
 
-        {/* DAU chart */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-4">
           <SectionTitle>Aktive Nutzer (letzte 7 Tage)</SectionTitle>
           <div className="flex items-end gap-3 justify-between">
@@ -363,7 +443,6 @@ export function AdminClient() {
           </div>
         </div>
 
-        {/* Top exercise types */}
         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
           <SectionTitle>Beliebteste Übungstypen</SectionTitle>
           {topExercises.length === 0 ? (
@@ -421,7 +500,6 @@ export function AdminClient() {
           />
         </div>
 
-        {/* Recent API log entries */}
         {apiLogs.length > 0 && (
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
             <div className="px-5 py-3 border-b border-gray-50">

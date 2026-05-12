@@ -58,7 +58,7 @@ const BUNDESLAENDER = [
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AuthPage() {
-  const [mode, setMode] = useState<"login" | "register">("login");
+  const [mode, setMode] = useState<"login" | "register" | "forgot">("login");
 
   // Login fields
   const [email, setEmail] = useState("");
@@ -80,11 +80,38 @@ export default function AuthPage() {
   const strength = mode === "register" ? getPasswordStrength(password) : null;
   const passwordErrors = mode === "register" && password ? validatePassword(password) : [];
 
-  function switchMode(next: "login" | "register") {
+  function switchMode(next: "login" | "register" | "forgot") {
     setMode(next);
     setError("");
     setInfo("");
     setPassword("");
+  }
+
+  async function handleForgotPassword(e: React.FormEvent) {
+    e.preventDefault();
+    setError("");
+    setInfo("");
+    if (!email.trim()) {
+      setError("Bitte gib deine E-Mail-Adresse ein.");
+      return;
+    }
+    setLoading(true);
+    const redirectTo =
+      typeof window !== "undefined"
+        ? `${window.location.origin}/auth/reset`
+        : "/auth/reset";
+    const { error: resetError } = await supabase.auth.resetPasswordForEmail(
+      email.trim(),
+      { redirectTo },
+    );
+    setLoading(false);
+    if (resetError) {
+      setError(toGerman(resetError.message));
+    } else {
+      setInfo(
+        "Wir haben dir einen Link zum Zurücksetzen geschickt. Bitte schau in deinem Postfach nach!",
+      );
+    }
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -137,6 +164,63 @@ export default function AuthPage() {
     }
 
     setLoading(false);
+  }
+
+  // ── Forgot-password view ────────────────────────────────────────────────────
+  if (mode === "forgot") {
+    return (
+      <div className="mx-auto max-w-sm px-4 py-10">
+        <div className="text-center mb-8">
+          <div className="text-7xl mb-3" role="img" aria-label="Schreibfix">🦊</div>
+          <h2 className="text-3xl font-black text-fox">Passwort vergessen?</h2>
+          <p className="mt-1 text-gray-500">
+            Gib deine E-Mail-Adresse ein
+          </p>
+        </div>
+        <div className="card">
+          <p className="text-sm text-gray-500 mb-4">
+            Wir schicken dir einen Link zum Zurücksetzen deines Passworts.
+          </p>
+          <form onSubmit={handleForgotPassword} className="flex flex-col gap-4">
+            <div>
+              <label htmlFor="forgot-email" className="block text-sm font-bold text-gray-500 mb-1">
+                E-Mail-Adresse
+              </label>
+              <input
+                id="forgot-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+                placeholder="name@beispiel.de"
+                className="w-full rounded-2xl border-2 border-gray-200 px-4 py-3 text-lg font-bold focus:border-fox focus:outline-none"
+              />
+            </div>
+            {error && (
+              <div role="alert" className="rounded-2xl border-2 border-red-200 bg-red-50 px-4 py-3 text-base font-bold text-red-700">
+                ⚠️ {error}
+              </div>
+            )}
+            {info && (
+              <div role="status" className="rounded-2xl border-2 border-green-200 bg-green-50 px-4 py-3 text-base font-bold text-green-700">
+                ✅ {info}
+              </div>
+            )}
+            <button type="submit" disabled={loading} className="btn-primary w-full mt-2">
+              {loading ? "Bitte warten …" : "Link senden →"}
+            </button>
+          </form>
+          <button
+            type="button"
+            onClick={() => switchMode("login")}
+            className="mt-4 w-full text-sm text-gray-400 hover:text-gray-600 text-center"
+          >
+            ← Zurück zum Anmelden
+          </button>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -263,6 +347,18 @@ export default function AuthPage() {
                   </li>
                 ))}
               </ul>
+            )}
+
+            {mode === "login" && (
+              <div className="mt-1 text-right">
+                <button
+                  type="button"
+                  onClick={() => switchMode("forgot")}
+                  className="text-xs text-gray-400 hover:text-fox underline"
+                >
+                  Passwort vergessen?
+                </button>
+              </div>
             )}
           </div>
 
