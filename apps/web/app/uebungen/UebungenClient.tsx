@@ -481,6 +481,28 @@ function PlayingScreen({
         })}
       </div>
 
+      {/* Feedback banner — shown immediately after clicking */}
+      {feedback !== null && (
+        <div
+          className={`rounded-2xl px-5 py-4 mb-4 text-center
+            ${feedback === "correct"
+              ? "bg-forest-light border-2 border-forest"
+              : "bg-red-50 border-2 border-red-300"}`}
+        >
+          <p className={`text-xl font-black
+            ${feedback === "correct" ? "text-forest-dark" : "text-red-700"}`}
+          >
+            {feedback === "correct" ? "✓ Richtig!" : "✗ Falsch!"}
+          </p>
+          {feedback === "wrong" && (
+            <p className="text-base font-bold text-gray-700 mt-1">
+              Richtig wäre:{" "}
+              <span className="text-forest-dark">{exercise.correctAnswer}</span>
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Vocabulary card — shown after answering */}
       {feedback !== null && isVocabulary && exercise.vocabData && (
         <VocabCard exercise={exercise} />
