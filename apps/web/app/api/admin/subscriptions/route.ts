@@ -77,6 +77,7 @@ export async function PUT(req: NextRequest) {
       stripe_subscription_id: "MANUAL",
       paypal_subscription_id: null,
       current_period_ends_at: body.expiresAt,
+      manually_set_by_admin: true,
       updated_at: new Date().toISOString(),
     }, { onConflict: "family_id" });
 

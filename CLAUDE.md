@@ -164,21 +164,78 @@ cd packages/core && npm run build
 ### Database
 Run once in Supabase SQL editor:
 ```sql
-CREATE TABLE subscriptions (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  family_id UUID REFERENCES auth.users(id) UNIQUE,
-  tier TEXT NOT NULL DEFAULT 'free',
-  status TEXT NOT NULL DEFAULT 'active',
-  stripe_customer_id TEXT,
-  stripe_subscription_id TEXT,
-  paypal_subscription_id TEXT,
-  trial_ends_at TIMESTAMPTZ,
-  current_period_ends_at TIMESTAMPTZ,
-  created_at TIMESTAMPTZ DEFAULT now(),
-  updated_at TIMESTAMPTZ DEFAULT now()
+CREATE TABLE IF NOT EXISTS subscriptions (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  family_id uuid REFERENCES profiles(id) ON DELETE CASCADE,
+  tier text DEFAULT 'free'
+    CHECK (tier IN ('free','plus','pro','school')),
+  status text DEFAULT 'active'
+    CHECK (status IN ('active','trialing','cancelled','expired','past_due')),
+  stripe_customer_id text,
+  stripe_subscription_id text,
+  paypal_subscription_id text,
+  trial_ends_at timestamp with time zone,
+  current_period_ends_at timestamp with time zone,
+  manually_set_by_admin boolean DEFAULT false,
+  created_at timestamp with time zone DEFAULT now(),
+  updated_at timestamp with time zone DEFAULT now()
 );
+
 ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "Users can read own subscription" ON subscriptions FOR SELECT USING (family_id = auth.uid());
+
+CREATE POLICY "Users can read own subscription"
+  ON subscriptions FOR SELECT
+  USING (auth.uid() = family_id);
+
+CREATE POLICY "Users can insert own subscription"
+  ON subscriptions FOR INSERT
+  WITH CHECK (auth.uid() = family_id);
+
+CREATE POLICY "Users can update own subscription"
+  ON subscriptions FOR UPDATE
+  USING (auth.uid() = family_id);
+```
+
+  - `manually_set_by_admin`: set to `true` when the admin manually assigns a tier via `/admin`
+  - Unique constraint on `family_id` (one subscription row per user) — used for upsert `onConflict: "family_id"`
+
+#### School tables (for `school` tier)
+```sql
+CREATE TABLE IF NOT EXISTS school_licenses (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  owner_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  school_name text NOT NULL,
+  max_students int NOT NULL DEFAULT 30,
+  license_code text UNIQUE NOT NULL,
+  valid_until timestamp with time zone,
+  created_at timestamp with time zone DEFAULT now()
+);
+
+ALTER TABLE school_licenses ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Owners can manage own license"
+  ON school_licenses FOR ALL
+  USING (auth.uid() = owner_id);
+
+CREATE TABLE IF NOT EXISTS school_students (
+  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+  license_id uuid REFERENCES school_licenses(id) ON DELETE CASCADE,
+  student_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
+  joined_at timestamp with time zone DEFAULT now(),
+  UNIQUE (license_id, student_id)
+);
+
+ALTER TABLE school_students ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "License owners can manage students"
+  ON school_students FOR ALL
+  USING (
+    EXISTS (
+      SELECT 1 FROM school_licenses
+      WHERE school_licenses.id = school_students.license_id
+        AND school_licenses.owner_id = auth.uid()
+    )
+  );
 ```
 
 ### API routes
