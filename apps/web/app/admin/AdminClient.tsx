@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabase";
+import { BackButton } from "@/components/BackButton";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -522,9 +523,7 @@ export function AdminClient() {
             Schreibfix · {user?.email}
           </p>
         </div>
-        <Link href="/" className="text-sm text-orange-500 hover:underline">
-          ← Zur App
-        </Link>
+        <BackButton href="/" label="← Zur App" />
       </div>
 
       {/* ── Section A: Users Overview ─────────────────────────────────────── */}

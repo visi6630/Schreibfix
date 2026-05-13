@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import { useSubscription } from "@/components/SubscriptionProvider";
 import type { Klasse } from "@schreibfix/core";
+import { BackButton } from "@/components/BackButton";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -222,6 +223,9 @@ export function LesenClient() {
   if (phase === "reading") {
     return (
       <div className="mx-auto max-w-lg px-4 py-8">
+        <div className="mb-4">
+          <BackButton href="/" />
+        </div>
         <div className="mb-6 text-center">
           <div className="text-4xl mb-2">📖</div>
           <h2 className="text-2xl font-black text-fox">{readingData.title}</h2>

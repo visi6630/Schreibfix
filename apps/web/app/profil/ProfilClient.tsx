@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabase";
+import { BackButton } from "@/components/BackButton";
 
 // Required Supabase migration (run once in dashboard):
 // ALTER TABLE profiles ADD COLUMN IF NOT EXISTS vorname TEXT;
@@ -166,6 +167,9 @@ export function ProfilClient() {
 
   return (
     <div className="mx-auto max-w-lg px-4 py-8">
+      <div className="mb-4">
+        <BackButton href="/" />
+      </div>
       <div className="mb-6">
         <h1 className="text-2xl font-black text-fox">Mein Profil</h1>
         <p className="text-gray-500 text-sm mt-0.5">

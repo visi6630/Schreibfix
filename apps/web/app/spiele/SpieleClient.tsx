@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/components/AuthProvider";
 import { supabase } from "@/lib/supabase";
+import { BackButton } from "@/components/BackButton";
 
 const XP_THRESHOLD = 50;
 
@@ -52,6 +53,9 @@ export function SpieleClient() {
 
   return (
     <div className="mx-auto max-w-md px-4 py-8">
+      <div className="mb-4">
+        <BackButton href="/" />
+      </div>
       {/* Header */}
       <div className="mb-6 text-center">
         <div className="text-5xl mb-2">🎮</div>

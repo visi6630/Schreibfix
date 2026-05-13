@@ -5,6 +5,7 @@ import { supabase } from "@/lib/supabase";
 import { useAuth } from "@/components/AuthProvider";
 import type { Klasse } from "@schreibfix/core";
 import Link from "next/link";
+import { BackButton } from "@/components/BackButton";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -304,9 +305,7 @@ export function ElternClient() {
           <h1 className="text-2xl font-bold text-gray-800">Elternportal</h1>
           <p className="text-sm text-gray-400 mt-0.5">Schreibfix · {user.email}</p>
         </div>
-        <Link href="/" className="text-sm text-orange-500 hover:underline">
-          ← Zur App
-        </Link>
+        <BackButton href="/" label="← Zur App" />
       </div>
 
       {/* Children profiles */}

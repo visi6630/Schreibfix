@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabase";
+import { BackButton } from "@/components/BackButton";
 
 const SPECIAL_CHARS = /[!@#$%^&*]/;
 
@@ -96,6 +97,9 @@ export default function ResetPage() {
 
   return (
     <div className="mx-auto max-w-sm px-4 py-10">
+      <div className="mb-4">
+        <BackButton href="/auth" label="← Zurück zum Anmelden" />
+      </div>
       <div className="text-center mb-8">
         <div className="text-7xl mb-3" role="img" aria-label="Schreibfix">🦊</div>
         <h2 className="text-3xl font-black text-fox">Neues Passwort festlegen</h2>
